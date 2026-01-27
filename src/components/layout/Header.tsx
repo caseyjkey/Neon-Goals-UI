@@ -1,28 +1,32 @@
-import React from 'react';
-import { Menu, LayoutGrid, List, Bell, Search } from 'lucide-react';
+import React, { useState } from 'react';
+import { Menu, LayoutGrid, List, Bell, Search, LogIn } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/store/useAppStore';
+import { AccountDropdown } from '@/components/auth/AccountDropdown';
 
 interface HeaderProps {
   className?: string;
 }
 
 export const Header: React.FC<HeaderProps> = ({ className }) => {
-  const { 
-    toggleSidebar, 
+  const {
+    toggleSidebar,
     sidebarOpen,
-    viewMode, 
-    setViewMode, 
-    user 
+    viewMode,
+    setViewMode,
+    user
   } = useAppStore();
 
+  const [accountDropdownOpen, setAccountDropdownOpen] = useState(false);
+
   return (
-    <header 
+    <header
       className={cn(
-        "h-16 px-4 lg:px-6 flex items-center justify-between",
+        "fixed top-0 right-0 left-0 h-16 px-4 lg:px-6 flex items-center justify-between",
         "bg-background/80 backdrop-blur-md",
         "border-b border-border",
-        "sticky top-0 z-30",
+        "z-[60] lg:pl-[292px]",
         className
       )}
     >
@@ -96,13 +100,21 @@ export const Header: React.FC<HeaderProps> = ({ className }) => {
           <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-accent animate-pulse" />
         </button>
 
-        {/* User Avatar */}
-        {user && (
-          <button className="flex items-center gap-2 p-1 pr-3 rounded-full bg-muted/30 hover:bg-muted/50 transition-colors border border-border/50">
+        {/* User Avatar or Login Button */}
+        {user ? (
+          <button
+            onClick={() => setAccountDropdownOpen(!accountDropdownOpen)}
+            className={cn(
+              "flex items-center gap-2 p-1 pr-3 rounded-full",
+              "bg-muted/30 hover:bg-muted/50 transition-colors border border-border/50",
+              accountDropdownOpen && "bg-muted/50"
+            )}
+            aria-label="Account menu"
+          >
             {user.avatar ? (
-              <img 
-                src={user.avatar} 
-                alt={user.name} 
+              <img
+                src={user.avatar}
+                alt={user.name}
                 className="w-8 h-8 rounded-full object-cover ring-2 ring-primary/30"
               />
             ) : (
@@ -114,8 +126,27 @@ export const Header: React.FC<HeaderProps> = ({ className }) => {
               {user.name.split(' ')[0]}
             </span>
           </button>
+        ) : (
+          <Link
+            to="/login"
+            className={cn(
+              "flex items-center gap-2 px-4 py-2 rounded-lg",
+              "bg-gradient-neon text-primary-foreground font-medium",
+              "hover:shadow-lg hover:neon-glow-cyan",
+              "transition-all duration-200"
+            )}
+          >
+            <LogIn className="w-4 h-4" />
+            <span className="hidden sm:inline">Sign In</span>
+          </Link>
         )}
       </div>
+
+      {/* Account Dropdown */}
+      <AccountDropdown
+        isOpen={accountDropdownOpen}
+        onClose={() => setAccountDropdownOpen(false)}
+      />
     </header>
   );
 };

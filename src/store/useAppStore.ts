@@ -58,6 +58,7 @@ interface AppState {
   // User actions
   setUser: (user: User | null) => void;
   updateSettings: (settings: Partial<Settings>) => void;
+  logout: () => void;
 }
 
 const defaultSettings: Settings = {
@@ -79,9 +80,9 @@ export const useAppStore = create<AppState>()(
       currentGoalId: null,
       sidebarOpen: true,
       activeCategory: 'all',
-      
+
       goals: mockGoals,
-      user: mockUser,
+      user: null, // Start with no user - requires login
       settings: defaultSettings,
       
       creationChat: {
@@ -278,7 +279,13 @@ export const useAppStore = create<AppState>()(
       
       // User actions
       setUser: (user) => set({ user }),
-      
+
+      logout: () => {
+        // Clear user data
+        set({ user: null });
+        // In production, would also clear tokens, cookies, etc.
+      },
+
       updateSettings: (newSettings) => set((state) => ({
         settings: { ...state.settings, ...newSettings },
       })),

@@ -76,13 +76,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
       {/* Sidebar */}
       <motion.aside
         initial={false}
-        animate={{ 
+        animate={{
           x: sidebarOpen ? 0 : -280,
           width: 280,
         }}
         transition={{ type: 'spring', damping: 25, stiffness: 200 }}
         className={cn(
-          "fixed lg:relative left-0 top-0 h-full z-50",
+          "fixed left-0 top-16 h-[calc(100vh-4rem)] z-50",
           "bg-sidebar border-r border-sidebar-border",
           "flex flex-col",
           "scrollbar-neon overflow-y-auto",

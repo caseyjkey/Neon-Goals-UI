@@ -61,6 +61,11 @@ export interface User {
   name: string;
   email: string;
   avatar?: string;
+  // GitHub-specific fields
+  githubLogin?: string;
+  githubBio?: string | null;
+  githubLocation?: string | null;
+  githubBlog?: string | null;
 }
 
 export interface Settings {

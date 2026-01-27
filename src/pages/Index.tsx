@@ -59,16 +59,15 @@ const Index = () => {
       {/* Sidebar */}
       <Sidebar />
 
+      {/* Header - Fixed at top */}
+      <Header />
+
       {/* Main Content Area */}
-      <div 
+      <div
         className={cn(
-          "min-h-screen flex flex-col transition-all duration-300",
-          sidebarOpen ? "lg:ml-[280px]" : "lg:ml-0"
+          "min-h-screen flex flex-col transition-all duration-300 pt-16 lg:ml-[280px]"
         )}
       >
-        {/* Header */}
-        <Header />
-
         {/* Main Content */}
         <div className="flex-1 flex flex-col lg:flex-row">
           {/* Goals Content */}
@@ -94,7 +93,7 @@ const Index = () => {
 
           {/* Chat Panel (Desktop) */}
           <aside className="hidden lg:block w-[350px] xl:w-[400px] border-l border-border p-4">
-            <ChatPanel mode="creation" className="h-[calc(100vh-8rem)] sticky top-4" />
+            <ChatPanel mode="creation" className="h-[calc(100vh-10rem)] sticky top-20" />
           </aside>
         </div>
 
