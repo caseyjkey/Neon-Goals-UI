@@ -363,17 +363,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
             initial={{ opacity: 0, x: -SIDEBAR_HANDLE_WIDTH }}
             animate={{
               x: 0,
-              opacity: isVaporizing ? 0.6 : 1,
-              scale: isVaporizing ? 0.75 : 1,
-              filter: isVaporizing ? 'blur(6px) brightness(1.5)' : 'blur(0px)',
+              opacity: isVaporizing ? 0.5 : 1,
+              scale: isVaporizing ? 0.7 : 1,
+              filter: isVaporizing ? 'blur(8px) brightness(2)' : 'blur(0px)',
             }}
-            exit={{
-              opacity: 0,
-              x: -SIDEBAR_HANDLE_WIDTH,
-              transition: { duration: 0.6 } // Longer exit to show vaporization
-            }}
+            exit={{ opacity: 0, x: -SIDEBAR_HANDLE_WIDTH }}
             transition={{
-              opacity: { duration: 0.15 },
+              opacity: { duration: 0.2 },
               x: { type: 'spring', stiffness: 300, damping: 30 },
               scale: { duration: 0.15 },
               filter: { duration: 0.15 },
@@ -393,7 +389,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
             aria-label="Return to overview"
           >
             <motion.div
-              className="flex flex-col items-center gap-2 text-sidebar-foreground group-hover:text-primary transition-colors pointer-events-none"
+              className={cn(
+                "flex flex-col items-center gap-2 pointer-events-none",
+                isVaporizing ? "text-cyan-400" : "text-sidebar-foreground group-hover:text-primary"
+              )}
               initial={false}
               animate={{
                 x: 0,
@@ -401,17 +400,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
               whileHover={{ x: 4 }}
               transition={{ type: 'spring', stiffness: 400, damping: 25 }}
               style={{
-                color: isVaporizing ? '#00ffff' : undefined,
-                textShadow: isVaporizing ? '0 0 15px #00ffff, 0 0 30px #00ffff' : undefined,
+                textShadow: isVaporizing ? '0 0 20px #00ffff, 0 0 40px #00ffff' : undefined,
               }}
             >
               <ChevronRight className={cn(
-                "w-5 h-5 transition-opacity",
-                !isVaporizing && "neon-text-cyan opacity-60 group-hover:opacity-100"
+                "w-5 h-5 transition-opacity duration-200",
+                !isVaporizing && "opacity-60 group-hover:opacity-100"
               )} />
               <span
                 className={cn(
-                  "text-xs font-medium transition-opacity",
+                  "text-xs font-medium transition-opacity duration-200",
                   !isVaporizing && "opacity-60 group-hover:opacity-100"
                 )}
                 style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}

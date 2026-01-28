@@ -22,6 +22,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
   const [mobileOpen, setMobileOpen] = useState(false);
   const [previousMode, setPreviousMode] = useState<'creation' | 'goal'>(mode);
   const [fabGlowPulse, setFabGlowPulse] = useState(false);
+  const [fabPulseKey, setFabPulseKey] = useState(0); // Counter to force re-renders
   const hasMounted = React.useRef(false);
   const modeRef = React.useRef(mode);
 
@@ -60,6 +61,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
 
       // Trigger FAB glow pulse on any mode change (both entering and leaving goal view)
       setFabGlowPulse(true);
+      setFabPulseKey(prev => prev + 1); // Increment to force re-render
       const timer = setTimeout(() => setFabGlowPulse(false), 2000);
       return () => clearTimeout(timer);
     }
@@ -119,6 +121,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
         aria-label="Open chat"
       >
         <motion.div
+          key={fabPulseKey}
           animate={fabGlowPulse ? {
             boxShadow: [
               '0 0 0 0 rgba(6, 182, 212, 0.7)',

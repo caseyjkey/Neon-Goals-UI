@@ -10,7 +10,6 @@ import { cn } from '@/lib/utils';
 const Index = () => {
   const [isDesktop, setIsDesktop] = useState(false);
   const hasClearedGoal = React.useRef(false);
-  const initialMarginRef = React.useRef<number>(0);
 
   const {
     sidebarOpen,
@@ -29,18 +28,6 @@ const Index = () => {
     window.addEventListener('resize', checkDesktop);
     return () => window.removeEventListener('resize', checkDesktop);
   }, []);
-
-  // Store initial margin on mount to prevent flash
-  useEffect(() => {
-    const isDesktop = window.innerWidth >= 1024;
-    initialMarginRef.current = isDesktop
-      ? currentGoalId
-        ? SIDEBAR_HANDLE_WIDTH
-        : sidebarOpen
-          ? SIDEBAR_WIDTH
-          : 0
-      : 0;
-  }, []); // Empty deps - only run on mount
 
   // Clear any lingering goal state when navigating to homepage (only once)
   useEffect(() => {
@@ -77,29 +64,29 @@ const Index = () => {
     <>
       {/* Main Content Area - animates with sidebar push/pull */}
       <motion.div
-        initial={{ marginLeft: initialMarginRef.current }}
-        animate={{
-          // Desktop: animated margin based on sidebar/goal state
-          // Mobile: no margin (sidebar is overlay)
+        initial={false}
+        layout="position"
+        style={{
           marginLeft: isDesktop
             ? currentGoalId
-              ? SIDEBAR_HANDLE_WIDTH // Goal view: only handle width
+              ? SIDEBAR_HANDLE_WIDTH
               : sidebarOpen
-                ? SIDEBAR_WIDTH // Home with sidebar open
-                : 0 // Sidebar closed
-            : 0, // Mobile: always 0
+                ? SIDEBAR_WIDTH
+                : 0
+            : 0
         }}
         transition={{
-          type: 'tween',
-          duration: 0.4,
-          ease: [0.25, 0.1, 0.25, 1], // Smooth ease-in-out
+          type: 'spring',
+          stiffness: 80,
+          damping: 18,
+          mass: 0.6
         }}
         className="h-screen flex flex-col pt-16"
       >
         {/* Goals Content */}
         <main
           className={cn(
-            "flex-1 min-w-0 p-4 lg:p-6 overflow-y-auto scrollbar-neon transition-all duration-500",
+            "flex-1 min-w-0 p-4 lg:p-6 overflow-y-auto scrollbar-neon",
             !isChatMinimized && "lg:pr-[416px]"
           )}
         >
