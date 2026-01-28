@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils';
 const Index = () => {
   const [isDesktop, setIsDesktop] = useState(false);
   const hasClearedGoal = React.useRef(false);
+  const initialMarginRef = React.useRef<number>(0);
 
   const {
     sidebarOpen,
@@ -28,6 +29,18 @@ const Index = () => {
     window.addEventListener('resize', checkDesktop);
     return () => window.removeEventListener('resize', checkDesktop);
   }, []);
+
+  // Store initial margin on mount to prevent flash
+  useEffect(() => {
+    const isDesktop = window.innerWidth >= 1024;
+    initialMarginRef.current = isDesktop
+      ? currentGoalId
+        ? SIDEBAR_HANDLE_WIDTH
+        : sidebarOpen
+          ? SIDEBAR_WIDTH
+          : 0
+      : 0;
+  }, []); // Empty deps - only run on mount
 
   // Clear any lingering goal state when navigating to homepage (only once)
   useEffect(() => {
@@ -64,7 +77,7 @@ const Index = () => {
     <>
       {/* Main Content Area - animates with sidebar push/pull */}
       <motion.div
-        initial={false}
+        initial={{ marginLeft: initialMarginRef.current }}
         animate={{
           // Desktop: animated margin based on sidebar/goal state
           // Mobile: no margin (sidebar is overlay)
@@ -76,22 +89,11 @@ const Index = () => {
                 : 0 // Sidebar closed
             : 0, // Mobile: always 0
         }}
-        transition={
-          currentGoalId
-            ? {
-                // Sync with sidebar exit: ease-in (accelerates out)
-                type: 'tween',
-                duration: 0.4,
-                ease: [0.4, 0, 1, 1],
-              }
-            : {
-                // Sync with sidebar entry: ease-out-back (settles with bounce)
-                type: 'spring',
-                damping: 15,
-                stiffness: 150,
-                mass: 0.8,
-              }
-        }
+        transition={{
+          type: 'tween',
+          duration: 0.4,
+          ease: [0.25, 0.1, 0.25, 1], // Smooth ease-in-out
+        }}
         className="h-screen flex flex-col pt-16"
       >
         {/* Goals Content */}

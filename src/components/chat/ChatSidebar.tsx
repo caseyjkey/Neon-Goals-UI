@@ -23,6 +23,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
   const [previousMode, setPreviousMode] = useState<'creation' | 'goal'>(mode);
   const [fabGlowPulse, setFabGlowPulse] = useState(false);
   const hasMounted = React.useRef(false);
+  const modeRef = React.useRef(mode);
 
   // Debug: Track component mounts
   useEffect(() => {
@@ -41,6 +42,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
   useEffect(() => {
     if (!hasMounted.current) {
       hasMounted.current = true;
+      console.log('[ChatSidebar] First mount - triggering FAB pulse');
       setFabGlowPulse(true);
       const timer = setTimeout(() => setFabGlowPulse(false), 2000);
       return () => clearTimeout(timer);
@@ -49,17 +51,19 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
 
   // Track mode changes for transitions
   useEffect(() => {
-    if (mode !== previousMode) {
-      const oldMode = previousMode;
+    console.log('[ChatSidebar] Mode effect running:', { mode, modeRef: modeRef.current });
+    if (mode !== modeRef.current) {
+      const oldMode = modeRef.current;
+      modeRef.current = mode;
       setPreviousMode(mode);
-      console.log('[ChatSidebar] Mode change:', { from: oldMode, to: mode });
+      console.log('[ChatSidebar] Mode change DETECTED:', { from: oldMode, to: mode });
 
       // Trigger FAB glow pulse on any mode change (both entering and leaving goal view)
       setFabGlowPulse(true);
       const timer = setTimeout(() => setFabGlowPulse(false), 2000);
       return () => clearTimeout(timer);
     }
-  }, [mode, previousMode]);
+  }, [mode]);
 
   return (
     <>
@@ -98,7 +102,7 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
         initial={false}
         animate={{
           opacity: isMinimized ? 1 : 0,
-          scale: isMinimized ? 1 : 0,
+          scale: isMinimized ? (fabGlowPulse ? 1.2 : 1) : 0,
         }}
         transition={{
           opacity: { duration: 0.15 },
@@ -117,9 +121,9 @@ export const ChatSidebar: React.FC<ChatSidebarProps> = ({
         <motion.div
           animate={fabGlowPulse ? {
             boxShadow: [
-              '0 0 0 0 rgba(6, 182, 212, 0)',
-              '0 0 0 8px rgba(6, 182, 212, 0)',
-              '0 0 0 16px rgba(6, 182, 212, 0)',
+              '0 0 0 0 rgba(6, 182, 212, 0.7)',
+              '0 0 0 8px rgba(6, 182, 212, 0.4)',
+              '0 0 0 16px rgba(6, 182, 212, 0.1)',
               '0 0 0 0 rgba(6, 182, 212, 0)',
             ],
           } : {}}

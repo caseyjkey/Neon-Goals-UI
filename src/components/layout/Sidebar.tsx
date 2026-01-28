@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -96,6 +96,27 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
     : sidebarOpen
       ? 0
       : -SIDEBAR_WIDTH;
+
+  // Track vaporization effect based on animation state (not exact position)
+  const [isVaporizing, setIsVaporizing] = useState(false);
+
+  // Trigger vaporization when exiting goal view (when sidebar comes back over toggle bar)
+  useEffect(() => {
+    console.log('[Sidebar] Vaporization check:', { isExitingGoalView, isEnteringGoalView, isInGoalView });
+    if (isExitingGoalView) {
+      console.log('[Sidebar] Triggering vaporization on EXIT');
+      setIsVaporizing(true);
+      // Reset quickly so effect happens before unmount (exit animation is 0.6s)
+      const timer = setTimeout(() => {
+        console.log('[Sidebar] Resetting vaporization');
+        setIsVaporizing(false);
+      }, 300); // Shorter than exit animation
+      return () => clearTimeout(timer);
+    } else if (isInGoalView) {
+      // Explicitly reset when in goal view
+      setIsVaporizing(false);
+    }
+  }, [isExitingGoalView, isInGoalView]);
 
   // Check if we're on a goal URL route (vs modal overlay)
   const isOnGoalRoute = location.pathname.startsWith('/goals/');
@@ -340,33 +361,59 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
         {isInGoalView && (
           <motion.button
             initial={{ opacity: 0, x: -SIDEBAR_HANDLE_WIDTH }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -SIDEBAR_HANDLE_WIDTH }}
+            animate={{
+              x: 0,
+              opacity: isVaporizing ? 0.6 : 1,
+              scale: isVaporizing ? 0.75 : 1,
+              filter: isVaporizing ? 'blur(6px) brightness(1.5)' : 'blur(0px)',
+            }}
+            exit={{
+              opacity: 0,
+              x: -SIDEBAR_HANDLE_WIDTH,
+              transition: { duration: 0.6 } // Longer exit to show vaporization
+            }}
             transition={{
-              opacity: { duration: 0.2 }, // Faster fade
-              x: { type: 'spring', stiffness: 300, damping: 30 } // Snappy slide
+              opacity: { duration: 0.15 },
+              x: { type: 'spring', stiffness: 300, damping: 30 },
+              scale: { duration: 0.15 },
+              filter: { duration: 0.15 },
             }}
             className={cn(
-              "fixed left-0 top-16 h-[calc(100vh-4rem)] z-[60]", // Higher z-index than GoalDetailView (z-50)
+              "fixed left-0 top-16 h-[calc(100vh-4rem)] z-[60]",
               "flex items-center justify-center",
               "bg-sidebar/80 backdrop-blur-sm border-r border-sidebar-border",
               "cursor-pointer group",
               "hover:bg-sidebar/90 transition-colors"
             )}
-            style={{ width: SIDEBAR_HANDLE_WIDTH }}
+            style={{
+              width: SIDEBAR_HANDLE_WIDTH,
+              mixBlendMode: isVaporizing ? 'color-dodge' : undefined,
+            }}
             onClick={handleReturnToOverview}
             aria-label="Return to overview"
           >
             <motion.div
               className="flex flex-col items-center gap-2 text-sidebar-foreground group-hover:text-primary transition-colors pointer-events-none"
               initial={false}
-              animate={{ x: 0 }}
+              animate={{
+                x: 0,
+              }}
               whileHover={{ x: 4 }}
               transition={{ type: 'spring', stiffness: 400, damping: 25 }}
+              style={{
+                color: isVaporizing ? '#00ffff' : undefined,
+                textShadow: isVaporizing ? '0 0 15px #00ffff, 0 0 30px #00ffff' : undefined,
+              }}
             >
-              <ChevronRight className="w-5 h-5 neon-text-cyan opacity-60 group-hover:opacity-100 transition-opacity" />
+              <ChevronRight className={cn(
+                "w-5 h-5 transition-opacity",
+                !isVaporizing && "neon-text-cyan opacity-60 group-hover:opacity-100"
+              )} />
               <span
-                className="text-xs font-medium opacity-60 group-hover:opacity-100 transition-opacity"
+                className={cn(
+                  "text-xs font-medium transition-opacity",
+                  !isVaporizing && "opacity-60 group-hover:opacity-100"
+                )}
                 style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}
               >
                 Back
