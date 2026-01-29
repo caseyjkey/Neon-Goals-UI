@@ -630,6 +630,9 @@ export const useAppStore = create<AppState>()(
         try {
           const response = await aiGoalCreationService.confirmGoal();
 
+          // Log the raw goal response for debugging
+          console.log('🔍 Raw goal response:', JSON.stringify(response.goal, null, 2));
+
           // If goal was created, add it to the list, exit creation mode, and reset chat
           if (response.goalCreated && response.goal) {
             // Transform the goal data to flatten nested fields (same as goalsService.transformGoal)

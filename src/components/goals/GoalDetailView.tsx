@@ -214,6 +214,19 @@ const FinanceGoalDetail: React.FC<{ goal: FinanceGoal }> = ({ goal }) => {
   const progress = Math.min((goal.currentBalance / goal.targetBalance) * 100, 100);
   const remaining = goal.targetBalance - goal.currentBalance;
 
+  // Calculate weeks to target date
+  const weeksToTarget = goal.targetDate
+    ? Math.max(0, Math.ceil((goal.targetDate.getTime() - Date.now()) / (1000 * 60 * 60 * 24 * 7)))
+    : null;
+
+  // Calculate estimated weeks based on current savings rate
+  const avgSavingsPerWeek = goal.currentBalance > 0 && goal.progressHistory.length > 0
+    ? goal.currentBalance / goal.progressHistory.length
+    : 0;
+  const estWeeksAtCurrentRate = avgSavingsPerWeek > 0
+    ? Math.ceil(remaining / avgSavingsPerWeek)
+    : null;
+
   return (
     <div className="max-w-3xl">
       {/* Header */}
@@ -320,15 +333,22 @@ const FinanceGoalDetail: React.FC<{ goal: FinanceGoal }> = ({ goal }) => {
         </motion.div>
         <motion.div variants={itemVariants} className="glass-card p-4 text-center">
           <p className="text-2xl font-heading font-bold text-success">
-            +{((goal.currentBalance / goal.progressHistory[0] - 1) * 100).toFixed(0)}%
+            {goal.progressHistory.length > 0 && goal.progressHistory[0] > 0
+              ? `+${((goal.currentBalance / goal.progressHistory[0] - 1) * 100).toFixed(0)}%`
+              : '0%'}
           </p>
           <p className="text-sm text-muted-foreground">Growth</p>
         </motion.div>
         <motion.div variants={itemVariants} className="glass-card p-4 text-center">
           <p className="text-2xl font-heading font-bold text-foreground">
-            {Math.ceil(remaining / (goal.currentBalance / goal.progressHistory.length))}
+            {estWeeksAtCurrentRate !== null ? estWeeksAtCurrentRate : weeksToTarget ?? '—'}
           </p>
           <p className="text-sm text-muted-foreground">Est. Weeks</p>
+          {weeksToTarget !== null && estWeeksAtCurrentRate !== null && (
+            <p className="text-xs text-muted-foreground mt-1">
+              Target: {weeksToTarget}w
+            </p>
+          )}
         </motion.div>
       </motion.div>
     </div>

@@ -10,6 +10,7 @@ export interface Goal {
   createdAt: Date;
   updatedAt: Date;
   status: GoalStatus;
+  targetDate?: Date;
 }
 
 export interface ItemGoal extends Goal {
