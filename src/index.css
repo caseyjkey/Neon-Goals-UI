@@ -414,9 +414,19 @@
 
   /* Grid lines background */
   .grid-bg {
-    background-image: 
+    background-image:
       linear-gradient(rgba(0, 240, 255, 0.03) 1px, transparent 1px),
       linear-gradient(90deg, rgba(0, 240, 255, 0.03) 1px, transparent 1px);
     background-size: 50px 50px;
+  }
+
+  /* Rotating gradient animation for sync toast */
+  @keyframes gradientRotate {
+    0% {
+      background-position: 0% 50%;
+    }
+    100% {
+      background-position: 200% 50%;
+    }
   }
 }

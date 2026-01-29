@@ -10,6 +10,7 @@ import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
 import { GoalDetailView } from "@/components/goals/GoalDetailView";
 import { ChatSidebar } from "@/components/chat/ChatSidebar";
+import { FloatingBackButton } from "@/components/ui/FloatingBackButton";
 import { Outlet } from "react-router-dom";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
@@ -19,30 +20,58 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
+// Protected route wrapper - redirects to login if not authenticated
+const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+  const user = useAppStore((state) => state.user);
+  const location = useLocation();
+
+  if (!user) {
+    // Redirect to login, preserving the intended destination
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  return <>{children}</>;
+};
+
 // Main layout that persists across routes
 const MainLayout = () => {
   const location = useLocation();
+  const navigate = useNavigate();
   const isGoalRoute = location.pathname.startsWith('/goals/');
   const isChatMinimized = useAppStore((state) => state.isChatMinimized);
   const toggleChatMinimized = useAppStore((state) => state.toggleChatMinimized);
+  const closeGoal = useAppStore((state) => state.closeGoal);
 
   // Don't render layout for auth pages
   if (['/login', '/auth/callback'].includes(location.pathname)) {
     return <Outlet />;
   }
 
+  const handleBackFromGoal = () => {
+    closeGoal();
+    navigate('/');
+  };
+
   return (
-    <div className="min-h-screen bg-background grid-bg">
-      <Sidebar />
-      <Header />
-      <ChatSidebar
-        mode={isGoalRoute ? "goal" : "creation"}
-        goalId={isGoalRoute ? location.pathname.split('/')[2] : undefined}
-        isMinimized={isChatMinimized}
-        onToggleMinimize={toggleChatMinimized}
-      />
-      <Outlet />
-    </div>
+    <ProtectedRoute>
+      <div className="min-h-screen bg-background grid-bg">
+        <Sidebar isGoalView={isGoalRoute} />
+        <Header />
+        <ChatSidebar
+          mode={isGoalRoute ? "goal" : "creation"}
+          goalId={isGoalRoute ? location.pathname.split('/')[2] : undefined}
+          isMinimized={isChatMinimized}
+          onToggleMinimize={toggleChatMinimized}
+        />
+        <Outlet />
+
+        {/* Floating back button for mobile goal view */}
+        <FloatingBackButton
+          isVisible={isGoalRoute}
+          onClick={handleBackFromGoal}
+        />
+      </div>
+    </ProtectedRoute>
   );
 };
 

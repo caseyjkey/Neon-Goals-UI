@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { RefreshCw, TrendingUp, Target, Wallet, ChevronDown, ChevronUp } from 'lucide-react';
+import { RefreshCw, TrendingUp, Target, Wallet, ChevronDown, ChevronUp, Landmark } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/store/useAppStore';
 import type { FinanceGoal } from '@/types/goals';
 import { FinancialAccountCard, sampleAccounts, type FinancialAccount } from './FinancialAccountCard';
+import { SyncToast, useSyncToast } from '@/components/ui/SyncToast';
 
 interface FinancialSummaryProps {
   className?: string;
@@ -13,6 +14,7 @@ interface FinancialSummaryProps {
 export const FinancialSummary: React.FC<FinancialSummaryProps> = ({ className }) => {
   const { goals, syncFinanceGoal } = useAppStore();
   const [showAccounts, setShowAccounts] = useState(false);
+  const syncToast = useSyncToast();
 
   const financeGoals = goals.filter(
     (goal): goal is FinanceGoal => goal.type === 'finance' && goal.status === 'active'
@@ -35,8 +37,17 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({ className })
     return progress >= 0.5;
   }).length;
 
-  const syncAll = () => {
-    financeGoals.forEach(goal => syncFinanceGoal(goal.id));
+  const syncAll = async () => {
+    syncToast.showSyncing('Updating all accounts...');
+
+    try {
+      // Simulate sync delay for demo
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      financeGoals.forEach(goal => syncFinanceGoal(goal.id));
+      syncToast.showSuccess(`${accounts.length} accounts synced`);
+    } catch (error) {
+      syncToast.showError('Could not sync accounts');
+    }
   };
 
   const handleAccountSync = (accountId: string) => {
@@ -56,12 +67,13 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({ className })
   const debtAccounts = accounts.filter(a => a.accountType === 'credit' || a.accountType === 'loan');
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className={cn("glass-card neon-border overflow-hidden", className)}
-    >
-      {/* Main Header */}
+    <>
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className={cn("glass-card neon-border overflow-hidden", className)}
+      >
+        {/* Main Header */}
       <div className="p-6">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
@@ -78,20 +90,20 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({ className })
             </div>
           </div>
           
-          <div className="flex gap-2">
-            <button
-              onClick={() => setShowAccounts(!showAccounts)}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-muted/50 text-sm font-medium text-foreground hover:bg-muted transition-colors"
-            >
-              {showAccounts ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-              Accounts
-            </button>
+          <div className="flex flex-col gap-1">
             <button
               onClick={syncAll}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-muted/50 text-sm font-medium text-foreground hover:bg-muted transition-colors"
+              className="flex items-center justify-center p-2 rounded-lg bg-muted/50 text-foreground hover:bg-muted transition-colors"
+              aria-label="Sync all accounts"
             >
               <RefreshCw className="w-4 h-4" />
-              Sync All
+            </button>
+            <button
+              onClick={() => setShowAccounts(!showAccounts)}
+              className="flex items-center justify-center p-2 rounded-lg bg-muted/50 text-foreground hover:bg-muted transition-colors"
+              aria-label="Toggle accounts"
+            >
+              <Landmark className="w-4 h-4" />
             </button>
           </div>
         </div>
@@ -99,39 +111,39 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({ className })
         {/* Stats Grid */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Net Worth */}
-          <div className="p-4 rounded-xl bg-muted/30 border border-border/30">
+          <div className="p-3 sm:p-4 rounded-xl bg-muted/30 border border-border/30">
             <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
               <TrendingUp className="w-3 h-3" />
               Net Worth
             </p>
-            <p className="text-2xl font-heading font-bold neon-text-magenta">
+            <p className="text-base sm:text-lg md:text-xl lg:text-2xl font-heading font-bold neon-text-magenta">
               ${netWorth.toLocaleString()}
             </p>
           </div>
 
           {/* Total Assets */}
-          <div className="p-4 rounded-xl bg-muted/30 border border-border/30">
+          <div className="p-3 sm:p-4 rounded-xl bg-muted/30 border border-border/30">
             <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
               <Target className="w-3 h-3" />
               Total Assets
             </p>
-            <p className="text-2xl font-heading font-bold text-success">
+            <p className="text-base sm:text-lg md:text-xl lg:text-2xl font-heading font-bold text-success">
               ${totalAssets.toLocaleString()}
             </p>
           </div>
 
           {/* Total Debt */}
-          <div className="p-4 rounded-xl bg-muted/30 border border-border/30">
+          <div className="p-3 sm:p-4 rounded-xl bg-muted/30 border border-border/30">
             <p className="text-xs text-muted-foreground mb-1">Total Debt</p>
-            <p className="text-2xl font-heading font-bold text-destructive">
+            <p className="text-base sm:text-lg md:text-xl lg:text-2xl font-heading font-bold text-destructive">
               -${totalDebt.toLocaleString()}
             </p>
           </div>
 
           {/* Goals Progress */}
-          <div className="p-4 rounded-xl bg-muted/30 border border-border/30">
+          <div className="p-3 sm:p-4 rounded-xl bg-muted/30 border border-border/30">
             <p className="text-xs text-muted-foreground mb-1">Goals On Track</p>
-            <p className="text-2xl font-heading font-bold neon-text-cyan">
+            <p className="text-base sm:text-lg md:text-xl lg:text-2xl font-heading font-bold neon-text-cyan">
               {goalsOnTrack} / {financeGoals.length}
             </p>
           </div>
@@ -240,6 +252,15 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({ className })
           </motion.div>
         )}
       </AnimatePresence>
-    </motion.div>
+      </motion.div>
+
+      {/* Sync Toast */}
+      <SyncToast
+        isVisible={syncToast.isVisible}
+        status={syncToast.status}
+        message={syncToast.message}
+        onClose={syncToast.close}
+      />
+    </>
   );
 };

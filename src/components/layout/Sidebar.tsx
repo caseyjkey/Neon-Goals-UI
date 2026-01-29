@@ -30,9 +30,10 @@ const categories: { id: GoalCategory; label: string; icon: React.ReactNode }[] =
 
 interface SidebarProps {
   className?: string;
+  isGoalView?: boolean; // Used to hide toggle bar on mobile
 }
 
-export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
+export const Sidebar: React.FC<SidebarProps> = ({ className, isGoalView = false }) => {
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -90,12 +91,27 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
     wasInGoalViewRef.current = isInGoalView;
   }, [isInGoalView]);
 
+  // Track if we're on mobile
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 1024);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
+
   // Calculate target X position
+  // On mobile goal view: completely hide sidebar (use floating back button)
+  // On desktop goal view: show slim handle
+  // Note: Add extra pixels on mobile to hide the border-r (1px border + safety margin)
   const targetX = isInGoalView
-    ? -(SIDEBAR_WIDTH - SIDEBAR_HANDLE_WIDTH)
+    ? isMobile
+      ? -(SIDEBAR_WIDTH + 4)  // Extra margin to fully hide border
+      : -(SIDEBAR_WIDTH - SIDEBAR_HANDLE_WIDTH)  // Show handle on desktop
     : sidebarOpen
       ? 0
-      : -SIDEBAR_WIDTH;
+      : -(SIDEBAR_WIDTH + 4);  // Also hide border when closed on mobile
 
   // Track vaporization effect based on animation state (not exact position)
   const [isVaporizing, setIsVaporizing] = useState(false);
@@ -159,7 +175,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 lg:hidden"
+            className="fixed inset-0 bg-black/80 backdrop-blur-md z-[55] lg:hidden"
             onClick={toggleSidebar}
           />
         )}
@@ -189,7 +205,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
                 }
         }
         className={cn(
-          "fixed left-0 top-16 h-[calc(100vh-4rem)] z-50",
+          "fixed left-0 z-50",
+          // Mobile: full screen overlay when open
+          "top-0 h-screen",
+          // Desktop: below header
+          "lg:top-16 lg:h-[calc(100vh-4rem)]",
           "bg-sidebar border-r border-sidebar-border",
           "flex flex-col",
           "scrollbar-neon overflow-y-auto",
@@ -198,13 +218,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
         style={{ width: SIDEBAR_WIDTH }}
       >
         {/* Header - Close button only */}
-        <div className="flex items-center justify-between p-4 border-b border-sidebar-border">
-          <span className="font-heading font-semibold text-foreground">Menu</span>
+        <div className="flex items-center justify-between p-4 pt-6 lg:pt-4 border-b border-sidebar-border">
+          <span className="font-heading font-semibold text-foreground text-lg">Menu</span>
           <button
             onClick={toggleSidebar}
-            className="p-2 rounded-lg hover:bg-sidebar-accent transition-colors lg:hidden"
+            className="p-2.5 rounded-xl bg-muted/50 hover:bg-sidebar-accent transition-colors lg:hidden"
           >
-            <X className="w-5 h-5 text-sidebar-foreground" />
+            <X className="w-6 h-6 text-foreground" />
           </button>
         </div>
 
@@ -376,7 +396,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ className }) => {
             }}
             className={cn(
               "fixed left-0 top-16 h-[calc(100vh-4rem)] z-[60]",
-              "flex items-center justify-center",
+              "hidden lg:flex items-center justify-center", // Hidden on mobile, use FloatingBackButton instead
               "bg-sidebar/80 backdrop-blur-sm border-r border-sidebar-border",
               "cursor-pointer group",
               "hover:bg-sidebar/90 transition-colors"

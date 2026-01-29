@@ -39,13 +39,18 @@ const Index = () => {
 
   const currentGoal = currentGoalId ? goals.find(g => g.id === currentGoalId) : null;
 
-  // Close sidebar on mobile when clicking outside
+  // Handle sidebar open/close based on screen size
   useEffect(() => {
     const handleResize = () => {
       if (window.innerWidth >= 1024) {
         setSidebarOpen(true);
+      } else {
+        setSidebarOpen(false);
       }
     };
+
+    // Set initial state based on screen size
+    handleResize();
 
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
@@ -96,7 +101,7 @@ const Index = () => {
               {getCategoryTitle()}
             </h1>
             <p className="text-muted-foreground">
-              Track your progress and crush your goals 🌴
+              Build your reality 🌴
             </p>
           </div>
 

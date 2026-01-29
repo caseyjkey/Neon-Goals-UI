@@ -6,9 +6,10 @@ import { useAppStore } from '@/store/useAppStore';
 import { initiateGitHubLogin } from '@/services/githubAuth';
 import { authService } from '@/services/authService';
 import { cn } from '@/lib/utils';
+import { mockGoals } from '@/data/mockGoals';
 
 const Login = () => {
-  const { user, setUser } = useAppStore();
+  const { user, setUser, addGoal } = useAppStore();
   const navigate = useNavigate();
 
   // Redirect if already logged in
@@ -28,10 +29,22 @@ const Login = () => {
       // Call backend demo endpoint to get a valid JWT token
       const demoUser = await authService.demoLogin();
       setUser(demoUser);
+      // Populate with mock goals
+      mockGoals.forEach(goal => addGoal(goal as any));
       navigate('/');
     } catch (error) {
-      console.error('Demo login failed:', error);
-      alert('Demo login failed. Please try again.');
+      console.error('Demo login failed, using local demo mode:', error);
+      // Fallback to local-only demo mode without backend
+      const localDemoUser = {
+        id: 'demo-user',
+        name: 'Demo User',
+        email: 'demo@example.com',
+        avatar: undefined,
+      };
+      setUser(localDemoUser);
+      // Populate with mock goals
+      mockGoals.forEach(goal => addGoal(goal as any));
+      navigate('/');
     }
   };
 

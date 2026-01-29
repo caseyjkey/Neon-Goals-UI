@@ -327,8 +327,7 @@ const MessageBubble: React.FC<{
               onClick={onConfirm}
               className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-neon text-primary-foreground font-medium text-sm transition-all hover:scale-105 neon-glow-cyan"
             >
-              <Check className="w-4 h-4" />
-              Looks good!
+              🚀 Create Goal
             </button>
             <button
               onClick={() => {
@@ -338,7 +337,7 @@ const MessageBubble: React.FC<{
               className="flex items-center gap-2 px-4 py-2 rounded-lg bg-muted text-foreground font-medium text-sm transition-all hover:bg-muted/70 hover:scale-105"
             >
               <XCircle className="w-4 h-4" />
-              Let's change it.
+              Edit Details
             </button>
           </div>
 

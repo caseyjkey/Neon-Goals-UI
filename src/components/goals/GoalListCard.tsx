@@ -159,40 +159,50 @@ export const GoalListCard: React.FC<GoalListCardProps> = ({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -10 }}
       whileHover={{ x: 4 }}
-      className="glass-card hover-lift cursor-pointer group flex items-center gap-4 p-4"
+      className="glass-card hover-lift cursor-pointer group flex items-center gap-3 sm:gap-4 p-3 sm:p-4"
       onClick={() => onViewDetail(goal.id)}
     >
-      {/* Progress Circle */}
+      {/* Progress Circle - smaller on mobile */}
       <div className="flex-shrink-0">
         {goal.type === 'item' ? (
-          <div className="w-14 h-14 rounded-xl overflow-hidden bg-muted">
-            <img 
-              src={(goal as ItemGoal).productImage} 
+          <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-xl overflow-hidden bg-muted">
+            <img
+              src={(goal as ItemGoal).productImage}
               alt={goal.title}
               className="w-full h-full object-cover"
             />
           </div>
         ) : (
-          <CircularProgress progress={progress} />
+          <div className="hidden sm:block">
+            <CircularProgress progress={progress} />
+          </div>
+        )}
+        {/* Smaller progress on mobile for non-item goals */}
+        {goal.type !== 'item' && (
+          <div className="sm:hidden">
+            <CircularProgress progress={progress} size={40} strokeWidth={3} />
+          </div>
         )}
       </div>
 
-      {/* Main Content */}
+      {/* Main Content - full width on mobile */}
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 mb-1">
-          <h3 className="font-heading font-semibold text-foreground truncate">
+        {/* Title row with badge */}
+        <div className="flex items-start gap-2 mb-0.5">
+          <h3 className="font-heading font-semibold text-foreground text-sm sm:text-base flex-1 min-w-0">
             {goal.title}
           </h3>
+          {/* Category Badge - always visible, right justified */}
           <span className={cn(
-            "px-2 py-0.5 rounded-full text-xs font-medium flex-shrink-0",
+            "px-1.5 sm:px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-medium whitespace-nowrap flex-shrink-0",
             getCategoryStyle(goal.type)
           )}>
-            <Tag className="w-3 h-3 inline mr-1" />
-            {getCategoryLabel(goal.type)}
+            <Tag className="w-2.5 h-2.5 sm:w-3 sm:h-3 inline mr-0.5 sm:mr-1" />
+            <span className="hidden sm:inline">{getCategoryLabel(goal.type)}</span>
           </span>
         </div>
-        
-        <p className="text-sm text-muted-foreground truncate">
+        {/* Description */}
+        <p className="text-xs sm:text-sm text-muted-foreground line-clamp-1">
           {getNextInfo()}
         </p>
       </div>
@@ -229,8 +239,8 @@ export const GoalListCard: React.FC<GoalListCardProps> = ({
         </p>
       </div>
 
-      {/* Quick Actions */}
-      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+      {/* Quick Actions - hidden on mobile */}
+      <div className="hidden sm:flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
         {goal.type === 'finance' && onSync && (
           <button
             onClick={(e) => { e.stopPropagation(); onSync(goal.id); }}

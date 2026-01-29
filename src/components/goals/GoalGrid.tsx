@@ -72,12 +72,7 @@ export const GoalGrid: React.FC<GoalGridProps> = ({ className }) => {
   // List View - wide horizontal cards
   if (viewMode === 'list') {
     return (
-      <motion.div
-        variants={container}
-        initial="hidden"
-        animate="show"
-        className={cn("flex flex-col gap-3", className)}
-      >
+      <div className={cn("flex flex-col gap-3", className)}>
         <AnimatePresence mode="popLayout">
           {filteredGoals.map((goal) => (
             <GoalListCard
@@ -90,7 +85,7 @@ export const GoalGrid: React.FC<GoalGridProps> = ({ className }) => {
             />
           ))}
         </AnimatePresence>
-      </motion.div>
+      </div>
     );
   }
 

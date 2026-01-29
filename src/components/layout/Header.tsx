@@ -49,7 +49,7 @@ export const Header: React.FC<HeaderProps> = ({ className }) => {
           <div className="w-10 h-10 rounded-lg bg-gradient-neon flex items-center justify-center">
             <Target className="w-6 h-6 text-primary-foreground" />
           </div>
-          <div>
+          <div className="hidden sm:block">
             <h1 className="font-heading font-bold text-lg gradient-text">Neon Goals</h1>
             <p className="text-xs text-muted-foreground">Crush your goals</p>
           </div>

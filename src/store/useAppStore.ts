@@ -103,7 +103,7 @@ export const useAppStore = create<AppState>()(
       // Initial state
       viewMode: 'card',
       currentGoalId: null,
-      sidebarOpen: true,
+      sidebarOpen: false, // Start closed; desktop opens via useEffect in Index.tsx
       activeCategory: 'all',
       isChatMinimized: false,
 
@@ -738,8 +738,10 @@ export const useAppStore = create<AppState>()(
     {
       name: 'goals-af-storage',
       partialize: (state) => ({
-        // Don't persist goals - fetch from API each time
-        // goals: state.goals,
+        // Persist user for session continuity
+        user: state.user,
+        // Persist goals for demo mode (real users fetch from API)
+        goals: state.goals,
         settings: state.settings,
         viewMode: state.viewMode,
         activeCategory: state.activeCategory,

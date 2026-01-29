@@ -64,20 +64,24 @@ export const AccountDropdown: React.FC<AccountDropdownProps> = ({ isOpen, onClos
             onClick={onClose}
           />
 
-          {/* Dropdown Content - Full screen on desktop, sheet on mobile */}
+          {/* Dropdown Content - Full screen on desktop, bottom sheet on mobile */}
           <motion.div
             ref={dropdownRef}
-            initial={{ opacity: 0, y: -20 }}
+            initial={{ opacity: 0, y: 100 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
+            exit={{ opacity: 0, y: 100 }}
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
             className={cn(
               "fixed z-[80]",
-              "lg:fixed lg:top-16 lg:right-0 lg:left-[280px]",
-              "lg:h-[calc(100vh-4rem)]",
+              // Mobile: bottom sheet with max height
+              "bottom-0 left-0 right-0",
+              "max-h-[85vh] overflow-y-auto",
+              "rounded-t-3xl",
+              "p-6 pt-4",
+              // Desktop: full panel
+              "lg:top-16 lg:bottom-0 lg:right-0 lg:left-[280px]",
+              "lg:max-h-none lg:rounded-none",
               "lg:pt-8 lg:pb-8 lg:pr-12 lg:pl-8",
-              "bottom-0 left-0 right-0 top-auto",
-              "rounded-t-3xl lg:rounded-none",
               "glass-card neon-border"
             )}
           >
