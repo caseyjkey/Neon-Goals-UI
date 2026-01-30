@@ -312,12 +312,12 @@ const MessageBubble: React.FC<{
       >
         <div className="max-w-[85%] space-y-3">
           {/* Main message */}
-          <div className="px-4 py-3 rounded-2xl bg-muted/50 text-white rounded-tl-sm border border-border/30 prose prose-sm dark:prose-invert prose-p:text-white prose-li:text-white prose-strong:text-white prose-h1:text-white prose-h2:text-white prose-h3:text-white prose-h4:text-white max-w-none [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-4 [&_li]:display-block [&_li]:my-1 [&_li]:ml-4">
+          <div className="px-4 py-3 rounded-2xl bg-muted/50 text-white rounded-tl-sm border border-border/30 prose prose-sm dark:prose-invert prose-p:text-white prose-li:text-white prose-strong:text-white prose-h1:text-white prose-h2:text-white prose-h3:text-white prose-h4:text-white max-w-none [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-4 [&_li]:my-1">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
           </div>
 
           {/* Markdown Preview Card */}
-          <div className="px-4 py-3 rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/30 prose prose-sm dark:prose-invert prose-p:text-white prose-li:text-white prose-strong:text-white prose-h1:text-white prose-h2:text-white prose-h3:text-white prose-h4:text-white max-w-none [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-4 [&_ul]:block [&_li]:block [&_li]:my-1">
+          <div className="px-4 py-3 rounded-xl bg-gradient-to-br from-primary/10 to-primary/5 border border-primary/30 prose prose-sm dark:prose-invert prose-p:text-white prose-li:text-white prose-strong:text-white prose-h1:text-white prose-h2:text-white prose-h3:text-white prose-h4:text-white max-w-none [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-4 [&_li]:my-1">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.goalPreview}</ReactMarkdown>
           </div>
 
@@ -370,7 +370,7 @@ const MessageBubble: React.FC<{
         {isUser ? (
           <p className="text-sm whitespace-pre-wrap leading-relaxed">{message.content}</p>
         ) : (
-          <div className="prose prose-sm dark:prose-invert prose-p:text-white prose-li:text-white prose-strong:text-white prose-h1:text-white prose-h2:text-white prose-h3:text-white prose-h4:text-white max-w-none [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-4 [&_li]:display-block [&_li]:my-1 [&_li]:ml-4">
+          <div className="prose prose-sm dark:prose-invert prose-p:text-white prose-li:text-white prose-strong:text-white prose-h1:text-white prose-h2:text-white prose-h3:text-white prose-h4:text-white max-w-none [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-4 [&_li]:my-1">
             <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
           </div>
         )}
