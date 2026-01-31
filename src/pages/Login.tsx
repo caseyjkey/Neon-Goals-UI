@@ -13,7 +13,7 @@ import { RegisterForm } from '@/components/auth/RegisterForm';
 type AuthMode = 'oauth' | 'login' | 'register' | 'verify';
 
 const Login = () => {
-  const { user, setUser, addGoal, setDemoMode } = useAppStore();
+  const { user, setUser, addGoal, setDemoMode, fetchGoals } = useAppStore();
   const navigate = useNavigate();
   const [authMode, setAuthMode] = useState<AuthMode>('oauth');
   const [verifyEmail, setVerifyEmail] = useState('');
@@ -54,9 +54,11 @@ const Login = () => {
     navigate('/');
   };
 
-  const handleAuthSuccess = (authenticatedUser: any) => {
+  const handleAuthSuccess = async (authenticatedUser: any) => {
     setUser(authenticatedUser);
     setDemoMode(false);
+    // Fetch goals after successful login
+    await fetchGoals();
     navigate('/');
   };
 

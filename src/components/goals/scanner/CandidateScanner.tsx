@@ -11,7 +11,12 @@ import { CompareView } from './CompareView';
 interface CandidateScannerProps {
   candidates: ProductCandidate[];
   selectedCandidateId?: string;
+  shortlistedCandidates?: ProductCandidate[];
+  deniedCandidates?: ProductCandidate[];
+  isChatMinimized?: boolean;
   onSelect: (candidate: ProductCandidate) => void;
+  onShortlistChange?: (candidates: ProductCandidate[]) => void;
+  onDeniedChange?: (candidates: ProductCandidate[]) => void;
   onClose: () => void;
 }
 
@@ -33,21 +38,39 @@ const toManagedCandidate = (
 export const CandidateScanner: React.FC<CandidateScannerProps> = ({
   candidates,
   selectedCandidateId,
+  shortlistedCandidates = [],
+  deniedCandidates = [],
+  isChatMinimized = false,
   onSelect,
+  onShortlistChange,
+  onDeniedChange,
   onClose,
 }) => {
   const [mode, setMode] = useState<'feed' | 'compare'>('feed');
   const [currentIndex, setCurrentIndex] = useState(0);
   const [animation, setAnimation] = useState<ScannerAnimation>('idle');
+  const [focusedShortlistItem, setFocusedShortlistItem] = useState<ManagedCandidate | null>(null);
 
-  // Initialize candidates with status
+  // Get IDs of shortlisted and denied candidates for filtering (handle null/undefined)
+  const shortlistedIds = (shortlistedCandidates || []).map(c => c.id);
+  const deniedIds = (deniedCandidates || []).map(c => c.id);
+
+  // Initialize candidates with status - filter out denied and already selected/shortlisted
   const [prospects, setProspects] = useState<ManagedCandidate[]>(() =>
     candidates
-      .filter(c => c.id !== selectedCandidateId)
+      .filter(c =>
+        c.id !== selectedCandidateId &&
+        !shortlistedIds.includes(c.id) &&
+        !deniedIds.includes(c.id)
+      )
       .map(c => toManagedCandidate(c, 'prospect'))
   );
 
-  const [shortlist, setShortlist] = useState<ManagedCandidate[]>([]);
+  // Initialize shortlist from saved candidates
+  const [shortlist, setShortlist] = useState<ManagedCandidate[]>(() =>
+    (shortlistedCandidates || []).map(c => toManagedCandidate(c, 'shortlisted'))
+  );
+
   const [primary, setPrimary] = useState<ManagedCandidate | null>(() => {
     if (selectedCandidateId) {
       const selected = candidates.find(c => c.id === selectedCandidateId);
@@ -62,19 +85,51 @@ export const CandidateScanner: React.FC<CandidateScannerProps> = ({
 
     // Brief delay for animation
     setTimeout(() => {
-      setProspects(prev => prev.filter(p => p.id !== candidate.id));
-      setShortlist(prev => [
-        ...prev,
-        { ...candidate, status: 'shortlisted', shortlistedAt: new Date() },
-      ]);
+      setProspects(prev => {
+        const filtered = prev.filter(p => p.id !== candidate.id);
+        // Adjust current index if needed to stay in bounds
+        if (currentIndex >= filtered.length && filtered.length > 0) {
+          setCurrentIndex(filtered.length - 1);
+        }
+        return filtered;
+      });
+      setShortlist(prev => {
+        const candidateWithTimestamp = {
+          ...candidate,
+          status: 'shortlisted' as const,
+          shortlistedAt: new Date(),
+        };
+        const updated = [...prev, candidateWithTimestamp];
+        // Persist to backend - send full objects with timestamp
+        onShortlistChange?.(updated);
+        return updated;
+      });
       setAnimation('idle');
     }, 300);
-  }, []);
+  }, [currentIndex, onShortlistChange]);
 
   // Handle dismissing a prospect
   const handleDismiss = useCallback((candidate: ManagedCandidate) => {
-    setProspects(prev => prev.filter(p => p.id !== candidate.id));
-  }, []);
+    setProspects(prev => {
+      const filtered = prev.filter(p => p.id !== candidate.id);
+      // Adjust current index if needed to stay in bounds
+      if (currentIndex >= filtered.length && filtered.length > 0) {
+        setCurrentIndex(filtered.length - 1);
+      }
+      return filtered;
+    });
+
+    // Add to denied list with timestamp and persist
+    const candidateWithTimestamp = {
+      ...candidate,
+      status: 'dismissed' as const,
+      dismissedAt: new Date(),
+    };
+
+    // Persist to backend - send full object array (append to existing)
+    const updatedDenied = [...(deniedCandidates || []), candidateWithTimestamp];
+    onDeniedChange?.(updatedDenied);
+  }, [currentIndex, deniedCandidates, onDeniedChange]);
 
   // Handle promoting to primary (the "install" action)
   const handlePromote = useCallback((candidate: ManagedCandidate) => {
@@ -108,19 +163,43 @@ export const CandidateScanner: React.FC<CandidateScannerProps> = ({
 
   // Handle removing from shortlist
   const handleRemoveFromShortlist = useCallback((candidate: ManagedCandidate) => {
-    setShortlist(prev => prev.filter(p => p.id !== candidate.id));
+    setShortlist(prev => {
+      const updated = prev.filter(p => p.id !== candidate.id);
+      onShortlistChange?.(updated);
+      return updated;
+    });
+    // Clear focused item if it was removed
+    if (focusedShortlistItem?.id === candidate.id) {
+      setFocusedShortlistItem(null);
+    }
+  }, [onShortlistChange, focusedShortlistItem]);
+
+  // Handle hot-swap: bring shortlist item to focus
+  const handleFocusShortlistItem = useCallback((candidate: ManagedCandidate) => {
+    setFocusedShortlistItem(candidate);
+  }, []);
+
+  // Handle return to discovery stack
+  const handleReturnToStack = useCallback(() => {
+    setFocusedShortlistItem(null);
   }, []);
 
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation(); // Prevent event from bubbling to parent handlers
+        e.stopImmediatePropagation(); // Stop other handlers on same element
+        onClose();
+      }
       if (e.key === '1') setMode('feed');
       if (e.key === '2') setMode('compare');
     };
 
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    // Use capture phase to intercept before other handlers
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
   }, [onClose]);
 
   return (
@@ -128,7 +207,12 @@ export const CandidateScanner: React.FC<CandidateScannerProps> = ({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 bg-background/98 backdrop-blur-xl flex flex-col"
+      className={cn(
+        "fixed top-0 bottom-0 z-50 bg-background/98 backdrop-blur-xl flex flex-col",
+        // Start from left edge on mobile, after sidebar handle on desktop (48px)
+        "left-0 lg:left-[48px]",
+        isChatMinimized ? "right-0" : "lg:right-[400px] right-0"
+      )}
     >
       {/* CRT Scanline overlay effect */}
       <div className="absolute inset-0 pointer-events-none bg-[repeating-linear-gradient(0deg,transparent,transparent_2px,rgba(0,240,255,0.03)_2px,rgba(0,240,255,0.03)_4px)] z-10" />
@@ -205,14 +289,17 @@ export const CandidateScanner: React.FC<CandidateScannerProps> = ({
                 onDismiss={handleDismiss}
                 currentIndex={currentIndex}
                 onIndexChange={setCurrentIndex}
+                focusedShortlistItem={focusedShortlistItem}
+                onReturnToStack={handleReturnToStack}
               />
 
-              {/* Action Buttons */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="relative z-20 p-4 lg:p-6 flex items-center justify-center gap-6"
-              >
+              {/* Action Buttons - Hidden when viewing focused shortlist item */}
+              {!focusedShortlistItem && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="relative z-20 p-4 lg:p-6 flex items-center justify-center gap-6"
+                >
                 <button
                   onClick={() => setCurrentIndex(Math.max(0, currentIndex - 1))}
                   disabled={currentIndex === 0}
@@ -265,6 +352,7 @@ export const CandidateScanner: React.FC<CandidateScannerProps> = ({
                   <ChevronRight className="w-5 h-5" />
                 </button>
               </motion.div>
+              )}
 
               {/* Shortlist Gallery */}
               <ShortlistGallery
@@ -272,7 +360,9 @@ export const CandidateScanner: React.FC<CandidateScannerProps> = ({
                 primaryId={primary?.id || null}
                 onPromote={handlePromote}
                 onRemove={handleRemoveFromShortlist}
+                onFocus={handleFocusShortlistItem}
                 isInstalling={animation === 'installing-primary'}
+                focusedItemId={focusedShortlistItem?.id || null}
               />
             </motion.div>
           ) : (

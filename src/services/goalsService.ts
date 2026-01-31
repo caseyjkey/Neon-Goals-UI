@@ -15,6 +15,14 @@ function transformGoal(goal: any): any {
       retailerName: goal.itemData.retailerName,
       statusBadge: goal.itemData.statusBadge,
       searchResults: goal.itemData.searchResults,
+      candidates: goal.itemData.candidates,
+      selectedCandidateId: goal.itemData.selectedCandidateId,
+      shortlistedCandidates: goal.itemData.shortlistedCandidates,
+      deniedCandidates: goal.itemData.deniedCandidates,
+      category: goal.itemData.category,
+      searchTerm: goal.itemData.searchTerm,
+      // Vehicle filters (JSONB field for flexible vehicle data)
+      vehicleFilters: goal.itemData.vehicleFilters,
     };
   }
 

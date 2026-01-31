@@ -139,12 +139,20 @@ export const Sidebar: React.FC<SidebarProps> = ({ className, isGoalView = false 
 
   // Handle returning from goal view to overview
   const handleReturnToOverview = () => {
-    closeGoal();
-    // Ensure sidebar opens when returning to overview
-    setSidebarOpen(true);
-    // If on a goal URL route, navigate back to home
-    if (isOnGoalRoute) {
-      navigate('/');
+    // Check if scanner is open first
+    const scannerOpen = document.querySelector('[data-scanner-open="true"]');
+    if (scannerOpen) {
+      // Only close scanner, not the goal view
+      window.dispatchEvent(new CustomEvent('close-scanner'));
+    } else {
+      // Close goal view and return to overview
+      closeGoal();
+      // Ensure sidebar opens when returning to overview
+      setSidebarOpen(true);
+      // If on a goal URL route, navigate back to home
+      if (isOnGoalRoute) {
+        navigate('/');
+      }
     }
   };
 

@@ -3,11 +3,12 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useParams, Navigate, useNavigate, useLocation } from "react-router-dom";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useAppStore } from "@/store/useAppStore";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
+import { AccountDropdown } from "@/components/auth/AccountDropdown";
 import { GoalDetailView } from "@/components/goals/GoalDetailView";
 import { ChatSidebar } from "@/components/chat/ChatSidebar";
 import { FloatingBackButton } from "@/components/ui/FloatingBackButton";
@@ -23,9 +24,11 @@ const queryClient = new QueryClient();
 // Protected route wrapper - redirects to login if not authenticated
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const user = useAppStore((state) => state.user);
+  const isDemoMode = useAppStore((state) => state.isDemoMode);
   const location = useLocation();
 
-  if (!user) {
+  // Allow access if user is logged in OR if demo mode is enabled
+  if (!user && !isDemoMode) {
     // Redirect to login, preserving the intended destination
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
@@ -38,9 +41,11 @@ const MainLayout = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const isGoalRoute = location.pathname.startsWith('/goals/');
+  const isSettingsRoute = location.pathname === '/settings';
   const isChatMinimized = useAppStore((state) => state.isChatMinimized);
   const toggleChatMinimized = useAppStore((state) => state.toggleChatMinimized);
   const closeGoal = useAppStore((state) => state.closeGoal);
+  const [accountDropdownOpen, setAccountDropdownOpen] = useState(false);
 
   // Don't render layout for auth pages
   if (['/login', '/auth/callback'].includes(location.pathname)) {
@@ -55,14 +60,22 @@ const MainLayout = () => {
   return (
     <ProtectedRoute>
       <div className="min-h-screen bg-background grid-bg">
-        <Sidebar isGoalView={isGoalRoute} />
-        <Header />
-        <ChatSidebar
-          mode={isGoalRoute ? "goal" : "creation"}
-          goalId={isGoalRoute ? location.pathname.split('/')[2] : undefined}
-          isMinimized={isChatMinimized}
-          onToggleMinimize={toggleChatMinimized}
-        />
+        {/* Only show Sidebar and ChatSidebar if NOT on settings page */}
+        {!isSettingsRoute && <Sidebar isGoalView={isGoalRoute} />}
+        {!isSettingsRoute && (
+          <Header
+            accountDropdownOpen={accountDropdownOpen}
+            setAccountDropdownOpen={setAccountDropdownOpen}
+          />
+        )}
+        {!isSettingsRoute && (
+          <ChatSidebar
+            mode={isGoalRoute ? "goal" : "creation"}
+            goalId={isGoalRoute ? location.pathname.split('/')[2] : undefined}
+            isMinimized={isChatMinimized}
+            onToggleMinimize={toggleChatMinimized}
+          />
+        )}
         <Outlet />
 
         {/* Floating back button for mobile goal view */}
@@ -70,6 +83,14 @@ const MainLayout = () => {
           isVisible={isGoalRoute}
           onClick={handleBackFromGoal}
         />
+
+        {/* Account dropdown - rendered outside header for full viewport height */}
+        {!isSettingsRoute && (
+          <AccountDropdown
+            isOpen={accountDropdownOpen}
+            onClose={() => setAccountDropdownOpen(false)}
+          />
+        )}
       </div>
     </ProtectedRoute>
   );
@@ -117,7 +138,7 @@ const GoalDetailPageWrapper = () => {
 
   const goal = goals.find(g => g.id === goalId);
 
-  // Update store when URL changes
+  // Update store when URL changes (only sync from URL to store, not the reverse)
   useEffect(() => {
     if (goalId && goalId !== currentGoalId) {
       selectGoal(goalId);
@@ -128,7 +149,8 @@ const GoalDetailPageWrapper = () => {
         closeGoal();
       }
     };
-  }, [goalId, currentGoalId, selectGoal, closeGoal]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [goalId]); // Only depend on goalId (URL param), not currentGoalId (store state)
 
   if (!goal) {
     return <Navigate to="/" replace />;

@@ -10,6 +10,8 @@ interface ProspectFeedProps {
   onDismiss: (candidate: ManagedCandidate) => void;
   currentIndex: number;
   onIndexChange: (index: number) => void;
+  focusedShortlistItem?: ManagedCandidate | null;
+  onReturnToStack?: () => void;
 }
 
 const springConfig = {
@@ -24,6 +26,8 @@ export const ProspectFeed: React.FC<ProspectFeedProps> = ({
   onDismiss,
   currentIndex,
   onIndexChange,
+  focusedShortlistItem,
+  onReturnToStack,
 }) => {
   const visibleCards = prospects.slice(currentIndex, currentIndex + 3);
 
@@ -33,11 +37,64 @@ export const ProspectFeed: React.FC<ProspectFeedProps> = ({
     } else {
       onDismiss(candidate);
     }
-    // Move to next card
-    if (currentIndex < prospects.length - 1) {
-      onIndexChange(currentIndex + 1);
-    }
+    // Don't increment index - the next card will slide into current position
+    // The parent component handles bounds checking
   };
+
+  // Hot-swap: Show focused shortlist item instead of prospects
+  if (focusedShortlistItem) {
+    const currentProspect = prospects[currentIndex];
+
+    return (
+      <div className="flex-1 relative flex items-center justify-center">
+        <div className="relative w-full max-w-md aspect-[3/4]">
+          {/* Peeking prospect card behind */}
+          {currentProspect && (
+            <motion.div
+              initial={{ x: 300, opacity: 0 }}
+              animate={{ x: 20, opacity: 0.4 }}
+              exit={{ x: 300, opacity: 0 }}
+              transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+              onClick={onReturnToStack}
+              className="absolute inset-0 cursor-pointer"
+              style={{ zIndex: 1 }}
+            >
+              <div className="absolute inset-0 glass-card rounded-2xl overflow-hidden border-2 border-primary/50">
+                <div className="h-[50%] relative overflow-hidden">
+                  <img
+                    src={currentProspect.image}
+                    alt={currentProspect.name}
+                    className="w-full h-full object-cover"
+                    draggable={false}
+                  />
+                </div>
+                <div className="absolute top-1/2 -translate-y-1/2 left-1/2 -translate-x-1/2 px-4 py-2 rounded-full bg-primary/90 text-primary-foreground font-medium text-sm whitespace-nowrap">
+                  Tap to return to stack
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {/* Focused shortlist item */}
+          <motion.div
+            initial={{ scale: 0.3, y: 300, opacity: 0 }}
+            animate={{ scale: 1, y: 0, opacity: 1 }}
+            exit={{ scale: 0.3, y: 300, opacity: 0 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 25 }}
+            className="absolute inset-0"
+            style={{ zIndex: 10 }}
+          >
+            <ProspectCard
+              candidate={focusedShortlistItem}
+              stackIndex={0}
+              isActive={false}
+              onSwipe={() => {}}
+            />
+          </motion.div>
+        </div>
+      </div>
+    );
+  }
 
   if (prospects.length === 0 || currentIndex >= prospects.length) {
     return (

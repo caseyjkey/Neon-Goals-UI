@@ -9,7 +9,9 @@ interface ShortlistGalleryProps {
   primaryId: string | null;
   onPromote: (candidate: ManagedCandidate) => void;
   onRemove: (candidate: ManagedCandidate) => void;
+  onFocus?: (candidate: ManagedCandidate) => void;
   isInstalling: boolean;
+  focusedItemId?: string | null;
 }
 
 const springConfig = {
@@ -23,7 +25,9 @@ export const ShortlistGallery: React.FC<ShortlistGalleryProps> = ({
   primaryId,
   onPromote,
   onRemove,
+  onFocus,
   isInstalling,
+  focusedItemId,
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -102,7 +106,7 @@ export const ShortlistGallery: React.FC<ShortlistGalleryProps> = ({
           <Star className="w-4 h-4 text-warning" />
           Shortlist ({shortlist.length})
           <span className="text-xs text-muted-foreground/70 ml-2">
-            Double-tap to promote to Primary
+            Tap to focus • Double-tap to promote
           </span>
         </h4>
       </div>
@@ -118,8 +122,10 @@ export const ShortlistGallery: React.FC<ShortlistGalleryProps> = ({
               key={candidate.id}
               candidate={candidate}
               isPrimary={candidate.id === primaryId}
+              isFocused={candidate.id === focusedItemId}
               onPromote={() => onPromote(candidate)}
               onRemove={() => onRemove(candidate)}
+              onFocus={onFocus ? () => onFocus(candidate) : undefined}
               index={index}
             />
           ))}
@@ -133,31 +139,40 @@ export const ShortlistGallery: React.FC<ShortlistGalleryProps> = ({
 interface ShortlistCardProps {
   candidate: ManagedCandidate;
   isPrimary: boolean;
+  isFocused: boolean;
   onPromote: () => void;
   onRemove: () => void;
+  onFocus?: () => void;
   index: number;
 }
 
 const ShortlistCard: React.FC<ShortlistCardProps> = ({
   candidate,
   isPrimary,
+  isFocused,
   onPromote,
   onRemove,
+  onFocus,
   index,
 }) => {
   return (
     <motion.div
       layout
       initial={{ opacity: 0, scale: 0.8, x: 50 }}
-      animate={{ opacity: 1, scale: 1, x: 0 }}
+      animate={{
+        opacity: 1,
+        scale: isFocused ? 1.1 : 1,
+        x: 0
+      }}
       exit={{ opacity: 0, scale: 0.8, x: -50 }}
       transition={{ ...springConfig, delay: index * 0.05 }}
+      onClick={onFocus}
       onDoubleClick={onPromote}
       className={cn(
         "relative flex-shrink-0 w-36 rounded-xl overflow-hidden cursor-pointer transition-all group",
-        isPrimary
-          ? "ring-2 ring-primary neon-glow-cyan"
-          : "glass-card hover:scale-105"
+        isPrimary && "ring-2 ring-primary neon-glow-cyan",
+        isFocused && "ring-2 ring-warning neon-glow-yellow scale-110",
+        !isPrimary && !isFocused && "glass-card hover:scale-105"
       )}
     >
       {/* Primary Crown */}

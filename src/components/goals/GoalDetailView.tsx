@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ExternalLink, TrendingUp, CheckCircle2, Circle, Plus, Layers, Scan, ChevronRight, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/store/useAppStore';
 import { SIDEBAR_HANDLE_WIDTH } from '@/components/layout/Sidebar';
 import { CandidateScanner } from './scanner/CandidateScanner';
+import { ScannerPlaceholder } from './ScannerPlaceholder';
 import type { Goal, ItemGoal, FinanceGoal, ActionGoal, ProductCandidate } from '@/types/goals';
 
 interface GoalDetailViewProps {
@@ -56,8 +57,42 @@ const itemVariants = {
 
 export const GoalDetailView: React.FC<GoalDetailViewProps> = ({ goal, onClose }) => {
   const [isDesktop, setIsDesktop] = useState(false);
-  const { isChatMinimized } = useAppStore();
+  const { isChatMinimized, updateGoal } = useAppStore();
 
+  const onCloseRef = useRef(onClose);
+  useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
+
+  // Close handler that closes scanner first if open
+  const handleClose = () => {
+    const scannerOpen = document.querySelector('[data-scanner-open="true"]');
+    if (scannerOpen) {
+      window.dispatchEvent(new CustomEvent('close-scanner'));
+    } else {
+      onCloseRef.current();
+    }
+  };
+
+  // ESC key to close goal view or scanner
+  useEffect(() => {
+    console.log('[GoalDetailView] ESC handler effect mounted');
+    const handleEsc = (e: KeyboardEvent) => {
+      console.log('[GoalDetailView] Key pressed:', e.key);
+      if (e.key === 'Escape') {
+        const scannerOpen = document.querySelector('[data-scanner-open="true"]');
+        if (scannerOpen) {
+          window.dispatchEvent(new CustomEvent('close-scanner'));
+        } else {
+          onCloseRef.current();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleEsc);
+    console.log('[GoalDetailView] ESC handler cleanup');
+    return () => {
+      console.log('[GoalDetailView] Removing ESC handler');
+      window.removeEventListener('keydown', handleEsc);
+    };
+  }, []);
   // Track desktop breakpoint for sidebar handle margin
   useEffect(() => {
     const checkDesktop = () => setIsDesktop(window.innerWidth >= 1024);
@@ -82,7 +117,7 @@ export const GoalDetailView: React.FC<GoalDetailViewProps> = ({ goal, onClose })
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.8 }}
         transition={{ ...springConfig, delay: 0.2 }}
-        onClick={onClose}
+        onClick={handleClose}
         className="absolute top-4 right-4 z-10 p-3 rounded-xl glass-card neon-border text-foreground hover:neon-glow-cyan transition-all"
         aria-label="Close"
       >
@@ -126,16 +161,45 @@ export const GoalDetailView: React.FC<GoalDetailViewProps> = ({ goal, onClose })
 
 // Item Goal Detail with Scanner Mode
 const ItemGoalDetail: React.FC<{ goal: ItemGoal }> = ({ goal }) => {
+  const { isChatMinimized, updateGoal } = useAppStore();
   const [isScannerOpen, setIsScannerOpen] = useState(false);
   const [selectedCandidate, setSelectedCandidate] = useState<ProductCandidate | null>(
-    goal.candidates?.find(c => c.id === goal.selectedCandidateId) || 
+    goal.candidates?.find(c => c.id === goal.selectedCandidateId) ||
     goal.candidates?.[0] || null
   );
   const [hasNewCandidates, setHasNewCandidates] = useState(false);
-  const { updateGoal } = useAppStore();
-  
-  const hasCandidates = goal.candidates && goal.candidates.length > 0;
-  const candidateCount = goal.candidates?.length || 0;
+
+  // Check if there are any candidates OR shortlisted items OR a selected candidate
+  const hasCandidates = (goal.candidates && goal.candidates.length > 0) ||
+    ((goal as ItemGoal).shortlistedCandidates && (goal as ItemGoal).shortlistedCandidates!.length > 0) ||
+    goal.selectedCandidateId;
+
+  // Calculate active prospect count (exclude denied, shortlisted, and selected)
+  const candidateCount = (() => {
+    if (!goal.candidates) return 0;
+
+    const shortlistedIds = (goal.shortlistedCandidates || []).map(c => c.id);
+    const deniedIds = (goal.deniedCandidates || []).map(c => c.id);
+
+    const activeProspects = goal.candidates.filter(c =>
+      c.id !== goal.selectedCandidateId &&
+      !shortlistedIds.includes(c.id) &&
+      !deniedIds.includes(c.id)
+    );
+
+    // Debug logging
+    console.log('[CandidateCount]', {
+      total: goal.candidates.length,
+      selectedId: goal.selectedCandidateId,
+      shortlisted: shortlistedIds.length,
+      denied: deniedIds.length,
+      active: activeProspects.length,
+      deniedCandidates: goal.deniedCandidates,
+      shortlistedCandidates: goal.shortlistedCandidates,
+    });
+
+    return activeProspects.length;
+  })();
   
   // Simulate new candidate detection (in real app, this would come from scraper)
   useEffect(() => {
@@ -161,6 +225,47 @@ const ItemGoalDetail: React.FC<{ goal: ItemGoal }> = ({ goal }) => {
     } as any);
   };
 
+  const handleShortlistChange = (shortlistedCandidates: ProductCandidate[]) => {
+    // Remove shortlisted candidates from the main candidates array
+    const shortlistedIds = shortlistedCandidates.map(c => c.id);
+    const deniedIds = ((goal as ItemGoal).deniedCandidates || []).map(c => c.id);
+
+    const updatedCandidates = (goal.candidates || []).filter(c =>
+      !shortlistedIds.includes(c.id) &&
+      !deniedIds.includes(c.id) &&
+      c.id !== goal.selectedCandidateId
+    );
+
+    updateGoal(goal.id, {
+      candidates: updatedCandidates,
+      shortlistedCandidates,
+    } as any);
+  };
+
+  const handleDeniedChange = (deniedCandidates: ProductCandidate[]) => {
+    // Remove denied candidates from the main candidates array
+    const shortlistedIds = ((goal as ItemGoal).shortlistedCandidates || []).map(c => c.id);
+    const deniedIds = deniedCandidates.map(c => c.id);
+
+    const updatedCandidates = (goal.candidates || []).filter(c =>
+      !shortlistedIds.includes(c.id) &&
+      !deniedIds.includes(c.id) &&
+      c.id !== goal.selectedCandidateId
+    );
+
+    updateGoal(goal.id, {
+      candidates: updatedCandidates,
+      deniedCandidates,
+    } as any);
+  };
+
+  // Listen for close-scanner event from parent ESC handler
+  useEffect(() => {
+    const handleCloseScanner = () => setIsScannerOpen(false);
+    window.addEventListener('close-scanner', handleCloseScanner);
+    return () => window.removeEventListener('close-scanner', handleCloseScanner);
+  }, []);
+
   // Get the display image - selected candidate or goal image
   const displayImage = selectedCandidate?.image || goal.productImage;
   const displayPrice = selectedCandidate?.price || goal.bestPrice;
@@ -171,12 +276,20 @@ const ItemGoalDetail: React.FC<{ goal: ItemGoal }> = ({ goal }) => {
       {/* Scanner Mode Overlay - Using new Digital Workbench */}
       <AnimatePresence>
         {isScannerOpen && goal.candidates && (
-          <CandidateScanner
-            candidates={goal.candidates}
-            selectedCandidateId={selectedCandidate?.id}
-            onSelect={handleSelectCandidate}
-            onClose={() => setIsScannerOpen(false)}
-          />
+          <>
+            <div data-scanner-open="true" style={{display: 'none'}} />
+            <CandidateScanner
+              candidates={goal.candidates}
+              selectedCandidateId={selectedCandidate?.id}
+              shortlistedCandidates={(goal as ItemGoal).shortlistedCandidates}
+              deniedCandidates={(goal as ItemGoal).deniedCandidates}
+              isChatMinimized={isChatMinimized}
+              onSelect={handleSelectCandidate}
+              onShortlistChange={handleShortlistChange}
+              onDeniedChange={handleDeniedChange}
+              onClose={() => setIsScannerOpen(false)}
+            />
+          </>
         )}
       </AnimatePresence>
 
@@ -186,12 +299,30 @@ const ItemGoalDetail: React.FC<{ goal: ItemGoal }> = ({ goal }) => {
         className="relative h-64 lg:h-80 rounded-2xl overflow-hidden mb-6 group cursor-pointer"
         onClick={() => hasCandidates && setIsScannerOpen(true)}
       >
-        <img
-          src={displayImage}
-          alt={goal.title}
-          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent" />
+        {displayImage?.includes('unsplash.com') ? (
+          <ScannerPlaceholder
+            status={
+              goal.statusBadge === 'pending_search' || goal.statusBadge === 'pending-search'
+                ? 'initiating'
+                : (goal.candidates && goal.candidates.length > 0)
+                ? 'decoding'
+                : selectedCandidate
+                ? 'acquired'
+                : 'initiating'
+            }
+            signalCount={goal.candidates?.length || 0}
+            className="h-full"
+          />
+        ) : (
+          <>
+            <img
+              src={displayImage}
+              alt={goal.title}
+              className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent" />
+          </>
+        )}
         
         {/* New Candidate Alert - pulsing magenta indicator */}
         {hasNewCandidates && (

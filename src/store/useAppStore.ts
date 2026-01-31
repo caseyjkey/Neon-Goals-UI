@@ -20,6 +20,8 @@ import { aiService } from '@/services/aiService';
 import { aiGoalCreationService } from '@/services/aiGoalCreationService';
 import { aiOverviewChatService } from '@/services/aiOverviewChatService';
 import { aiGoalChatService } from '@/services/aiGoalChatService';
+import { mockOverviewChatService } from '@/services/mockChatService';
+import { mockGoalChatService } from '@/services/mockChatService';
 import { browserUseService } from '@/services/browserUseService';
 
 interface AppState {
@@ -35,11 +37,13 @@ interface AppState {
   goals: Goal[];
   user: User | null;
   settings: Settings;
+  isDemoMode: boolean; // Demo mode flag - offline mode with mock data
 
   // Chat state
   creationChat: ChatState;
   goalChats: Record<string, ChatState>;
   isCreatingGoal: boolean; // Track if in goal creation flow
+  pendingCommands: Array<{ type: string; data: any }> | null; // Commands awaiting user confirmation
 
   // Loading state
   isLoading: boolean;
@@ -57,7 +61,7 @@ interface AppState {
 
   // Goal CRUD (local state updates - API calls happen separately)
   addGoal: (goal: Goal) => void;
-  updateGoal: (id: string, updates: Partial<Goal>) => void;
+  updateGoal: (id: string, updates: Partial<Goal>) => Promise<void>;
   deleteGoal: (id: string) => void;
   archiveGoal: (id: string) => void;
 
@@ -67,6 +71,10 @@ interface AppState {
   sendGoalMessage: (goalId: string, content: string) => void;
   startGoalCreation: () => void;
   stopGoalCreation: () => void;
+
+  // Pending commands actions
+  cancelPendingCommands: (reason?: string) => Promise<void>;
+  confirmPendingCommands: () => Promise<void>;
 
   // Task actions (for ActionGoals)
   toggleTask: (goalId: string, taskId: string) => void;
@@ -86,6 +94,7 @@ interface AppState {
   setUser: (user: User | null) => void;
   updateSettings: (settings: Partial<Settings>) => void;
   logout: () => void;
+  setDemoMode: (enabled: boolean) => void;
 
   // API integration methods
   initializeApp: () => Promise<void>;
@@ -119,9 +128,11 @@ export const useAppStore = create<AppState>()(
       goals: [],
       user: null, // Start with no user - requires login
       settings: defaultSettings,
+      isDemoMode: false, // Demo mode flag - disabled by default
       isLoading: false,
       error: null,
       isCreatingGoal: false,
+      pendingCommands: null,
 
       creationChat: {
         messages: [
@@ -158,25 +169,74 @@ export const useAppStore = create<AppState>()(
         goals: [...state.goals, goal]
       })),
 
-      updateGoal: (id, updates) => set((state) => ({
-        goals: state.goals.map((goal) =>
-          goal.id === id ? { ...goal, ...updates, updatedAt: new Date() } : goal
-        ),
-      })),
+      updateGoal: async (id, updates) => {
+        // Update local state immediately for optimistic UI
+        set((state) => ({
+          goals: state.goals.map((goal) =>
+            goal.id === id ? { ...goal, ...updates, updatedAt: new Date() } : goal
+          ),
+        }));
 
-      deleteGoal: (id) => set((state) => ({
-        goals: state.goals.filter((goal) => goal.id !== id),
-        currentGoalId: state.currentGoalId === id ? null : state.currentGoalId,
-      })),
+        // Persist to backend
+        try {
+          const goal = get().goals.find(g => g.id === id);
+          if (!goal) return;
 
-      archiveGoal: (id) => set((state) => ({
-        goals: state.goals.map((goal) =>
-          goal.id === id ? { ...goal, status: 'archived', updatedAt: new Date() } : goal
-        ),
-      })),
+          // Use the appropriate update method based on goal type
+          if (goal.type === 'item') {
+            await goalsService.updateItemGoal(id, updates);
+          } else if (goal.type === 'finance') {
+            await goalsService.updateFinanceGoal(id, updates);
+          } else if (goal.type === 'action') {
+            await goalsService.updateActionGoal(id, updates);
+          } else {
+            await goalsService.update(id, updates);
+          }
+        } catch (error) {
+          console.error('Failed to update goal:', error);
+          // Optionally: revert optimistic update on error
+          // For now, we keep the optimistic update
+        }
+      },
+
+      deleteGoal: async (id) => {
+        // Call the backend API to delete the goal
+        try {
+          await goalsService.delete(id);
+        } catch (error) {
+          console.error('Failed to delete goal:', error);
+          // Only remove from local state if backend delete succeeded
+          return;
+        }
+        // Remove from local state after successful backend delete
+        set((state) => ({
+          goals: state.goals.filter((goal) => goal.id !== id),
+          currentGoalId: state.currentGoalId === id ? null : state.currentGoalId,
+        }));
+      },
+
+      archiveGoal: async (id) => {
+        // Call the backend API to archive the goal
+        try {
+          const updated = await goalsService.archive(id);
+          // Update local state with backend response
+          set((state) => ({
+            goals: state.goals.map((goal) =>
+              goal.id === id ? { ...goal, status: 'archived', updatedAt: new Date() } : goal
+            ),
+          }));
+        } catch (error) {
+          console.error('Failed to archive goal:', error);
+        }
+      },
       
       // Chat actions
       sendCreationMessage: async (content) => {
+        // Clear any pending commands when user sends a new message (edit flow)
+        if (get().pendingCommands) {
+          set({ pendingCommands: null });
+        }
+
         const userMessage: Message = {
           id: Date.now().toString(),
           role: 'user',
@@ -236,11 +296,9 @@ export const useAppStore = create<AppState>()(
             }
           } else {
             // Regular chat mode with streaming
-            const currentMessages = get().creationChat.messages;
-            const chatMessages = currentMessages.map(m => ({
-              role: m.role as 'user' | 'assistant',
-              content: m.content,
-            }));
+            // Check if demo mode is enabled
+            const isDemo = get().isDemoMode;
+            const chatService = isDemo ? mockOverviewChatService : aiOverviewChatService;
 
             // Create a placeholder assistant message that will be updated as chunks arrive
             const assistantMessageId = (Date.now() + 1).toString();
@@ -259,45 +317,122 @@ export const useAppStore = create<AppState>()(
             }));
 
             try {
-              // Stream the response using new overview chat service
+              // Stream the response using appropriate chat service
               let fullContent = '';
+              let commands: any[] = [];
+              let finalChunk: any = {};
 
-              for await (const chunk of aiOverviewChatService.chatStream({ message: content })) {
-                fullContent += chunk.content;
-
-                // Update the message with accumulated content
+              // For demo mode, use non-streaming mock service to avoid generator complexity
+              console.log('[sendCreationMessage] isDemoMode:', get().isDemoMode, 'captured isDemo:', isDemo);
+              if (isDemo) {
+                const demoResponse = await mockOverviewChatService.chat(content);
                 set((state) => ({
                   creationChat: {
                     ...state.creationChat,
                     messages: state.creationChat.messages.map(msg =>
                       msg.id === assistantMessageId
-                        ? { ...msg, content: fullContent }
+                        ? { ...msg, content: demoResponse.content }
                         : msg
                     ),
+                    isLoading: false,
                   },
                 }));
 
-                if (chunk.done) {
+                // Execute commands from demo response
+                if (demoResponse.commands.length > 0) {
+                  for (const cmd of demoResponse.commands) {
+                    if (cmd.type === 'CREATE_GOAL') {
+                      // Create a new goal directly in demo mode
+                      const newGoal = {
+                        ...cmd.data,
+                        id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                        status: 'active',
+                        createdAt: new Date(),
+                      };
+                      set((state) => ({
+                        goals: [...state.goals, newGoal],
+                      }));
+                      console.log('✅ Demo Mode: Created goal locally:', newGoal.title);
+                    } else if (cmd.type === 'CREATE_SUBGOAL') {
+                      const parentGoalId = cmd.data.parentGoalId || '';
+                      await get().createSubgoal(cmd.data, parentGoalId);
+                    }
+                  }
+                }
+                return;
+              }
+
+              // Real service: use streaming
+              const streamResult = chatService.chatStream({ message: content });
+              const fullResponse = await (async () => {
+                for await (const chunk of streamResult) {
+                  fullContent += chunk.content;
+
+                  // Capture the final chunk with all metadata
+                  if (chunk.done) {
+                    finalChunk = chunk;
+                  }
+
+                  // Update the message with accumulated content and metadata
                   set((state) => ({
                     creationChat: {
                       ...state.creationChat,
-                      isLoading: false,
+                      messages: state.creationChat.messages.map(msg =>
+                        msg.id === assistantMessageId
+                          ? {
+                              ...msg,
+                              content: fullContent,
+                              ...(chunk.done && {
+                                goalPreview: chunk.goalPreview,
+                                awaitingConfirmation: chunk.awaitingConfirmation,
+                              }),
+                            }
+                          : msg
+                      ),
+                      ...(chunk.done && { isLoading: false }),
                     },
                   }));
-                  break;
+                }
+                // The generator returns the full response (for real service)
+                return await streamResult.next().then(r => r.value);
+              })();
+
+              // If message has goalPreview awaiting confirmation, store commands and wait for user
+              if (finalChunk.awaitingConfirmation && finalChunk.goalPreview) {
+                // Store pending commands for later confirmation
+                set({ pendingCommands: finalChunk.commands || [] });
+                return;
+              }
+
+              // Extract commands from the response (if any)
+              commands = finalChunk.commands || (fullResponse as any)?.commands || [];
+
+              // Execute commands from the response
+              if (commands.length > 0) {
+                // For overview chat, commands create goals
+                for (const cmd of commands) {
+                  if (cmd.type === 'CREATE_SUBGOAL') {
+                    // Use parentGoalId from command data if provided, otherwise empty for top-level
+                    const parentGoalId = cmd.data.parentGoalId || '';
+                    await get().createSubgoal(cmd.data, parentGoalId);
+                  }
+                }
+                // Refresh goals to show new additions
+                if (!isDemo) {
+                  await get().fetchGoals();
                 }
               }
 
-              // Note: The new backend uses commands instead of shouldEnterGoalCreation flag
-              // Commands are handled through the CREATE_SUBGOAL command type
-              return; // Exit early since we handled the message with the new service
+              return;
             } catch (streamError) {
               console.error('Streaming failed, falling back to regular chat:', streamError);
-              // Fallback to regular chat
-              const chatResponse = await aiService.chat({
-                messages: chatMessages,
-                mode: 'creation',
-              });
+              // Fallback to regular chat - respect demo mode
+              const chatResponse = isDemo
+                ? await mockOverviewChatService.chat(content)
+                : await aiService.chat({
+                    messages: state.creationChat.messages,
+                    mode: 'creation',
+                  });
 
               set((state) => ({
                 creationChat: {
@@ -311,8 +446,8 @@ export const useAppStore = create<AppState>()(
                 },
               }));
 
-              // Check if AI detected goal creation intent
-              if (chatResponse.shouldEnterGoalCreation && !get().isCreatingGoal) {
+              // Check if AI detected goal creation intent (skip in demo mode)
+              if (!isDemo && chatResponse.shouldEnterGoalCreation && !get().isCreatingGoal) {
                 await aiGoalCreationService.startSession();
                 get().startGoalCreation();
 
@@ -399,8 +534,12 @@ export const useAppStore = create<AppState>()(
         }));
 
         try {
-          // Use the new OpenAI-based goal chat service
-          const response = await aiGoalChatService.chat(goalId, { message: content });
+          // Check if demo mode is enabled
+          const isDemo = get().isDemoMode;
+          const chatService = isDemo ? mockGoalChatService : aiGoalChatService;
+
+          // Use the appropriate goal chat service
+          const response = await chatService.chat(goalId, { message: content });
 
           const assistantMessage: Message = {
             id: (Date.now() + 1).toString(),
@@ -423,13 +562,17 @@ export const useAppStore = create<AppState>()(
           if (response.commands && response.commands.length > 0) {
             for (const cmd of response.commands) {
               if (cmd.type === 'CREATE_SUBGOAL') {
-                await get().createSubgoal(cmd.data, goalId);
+                // Use parentGoalId from command data if provided, otherwise use current goal
+                const parentGoalId = cmd.data.parentGoalId || goalId;
+                await get().createSubgoal(cmd.data, parentGoalId);
               } else if (cmd.type === 'UPDATE_PROGRESS') {
                 await get().updateGoalProgress(goalId, cmd.data);
               }
             }
-            // Refresh goals to show new subgoals
-            await get().fetchGoals();
+            // Refresh goals to show new subgoals (only if not in demo mode)
+            if (!isDemo) {
+              await get().fetchGoals();
+            }
           }
         } catch (error) {
           console.error('AI goal chat error:', error);
@@ -506,29 +649,51 @@ export const useAppStore = create<AppState>()(
           const userId = get().user?.id;
           if (!userId) throw new Error('User not authenticated');
 
-          // Create subgoal via API based on type
+          const isDemo = get().isDemoMode;
           let newSubgoal;
-          const goalData = {
-            ...data,
-            parentGoalId,
-            userId,
-            status: 'active',
-          };
-          
-          if (data.type === 'item') {
-            newSubgoal = await goalsService.createItemGoal(goalData);
-          } else if (data.type === 'finance') {
-            newSubgoal = await goalsService.createFinanceGoal(goalData);
+
+          if (isDemo) {
+            // Demo mode: create goal locally without API call
+            newSubgoal = {
+              id: Date.now().toString(),
+              ...data,
+              parentGoalId,
+              userId,
+              status: 'active',
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            } as Goal;
+
+            // Add to local state immediately
+            set((state) => ({
+              goals: [...state.goals, newSubgoal],
+            }));
+
+            console.log('✅ Demo Mode: Created subgoal locally:', newSubgoal.title);
           } else {
-            newSubgoal = await goalsService.createActionGoal(goalData);
+            // Production mode: create via API
+            const goalData = {
+              ...data,
+              parentGoalId,
+              userId,
+              status: 'active',
+            };
+
+            if (data.type === 'item') {
+              newSubgoal = await goalsService.createItemGoal(goalData);
+            } else if (data.type === 'finance') {
+              newSubgoal = await goalsService.createFinanceGoal(goalData);
+            } else {
+              newSubgoal = await goalsService.createActionGoal(goalData);
+            }
+
+            // Add to local state
+            set((state) => ({
+              goals: [...state.goals, newSubgoal],
+            }));
+
+            console.log('✅ Created subgoal:', newSubgoal.title);
           }
-
-          // Add to local state
-          set((state) => ({
-            goals: [...state.goals, newSubgoal],
-          }));
-
-          console.log('✅ Created subgoal:', newSubgoal.title);
         } catch (error) {
           console.error('Failed to create subgoal:', error);
           throw error;
@@ -598,6 +763,116 @@ export const useAppStore = create<AppState>()(
       updateSettings: (newSettings) => set((state) => ({
         settings: { ...state.settings, ...newSettings },
       })),
+
+      setDemoMode: (enabled) => set({ isDemoMode: enabled }),
+
+      // Pending commands actions
+      cancelPendingCommands: async (reason = 'Changed my mind') => {
+        try {
+          const token = localStorage.getItem('auth_token');
+          const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
+          const response = await fetch(`${API_BASE}/ai/overview/chat/cancel-commands`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(token && { Authorization: `Bearer ${token}` }),
+            },
+            body: JSON.stringify({ reason }),
+          });
+
+          if (!response.ok) {
+            console.error('Failed to cancel commands:', response.status);
+          }
+
+          // Clear pending commands regardless of response
+          set({ pendingCommands: null });
+
+          // Add a system message to show cancellation
+          set((state) => ({
+            creationChat: {
+              ...state.creationChat,
+              messages: [
+                ...state.creationChat.messages,
+                {
+                  id: 'cancel-' + Date.now(),
+                  role: 'assistant',
+                  content: `Goal creation cancelled: ${reason}`,
+                  timestamp: new Date(),
+                },
+              ],
+            },
+          }));
+        } catch (error) {
+          console.error('Failed to cancel commands:', error);
+          // Clear pending commands on error too
+          set({ pendingCommands: null });
+        }
+      },
+
+      confirmPendingCommands: async () => {
+        const commands = get().pendingCommands;
+        if (!commands || commands.length === 0) {
+          console.error('No pending commands to confirm');
+          return;
+        }
+
+        try {
+          const token = localStorage.getItem('auth_token');
+          const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+
+          const response = await fetch(`${API_BASE}/ai/overview/chat/confirm-commands`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              ...(token && { Authorization: `Bearer ${token}` }),
+            },
+            body: JSON.stringify({ commands }),
+          });
+
+          if (!response.ok) {
+            throw new Error(`Failed to confirm commands: ${response.status}`);
+          }
+
+          // Clear pending commands after successful confirmation
+          set({ pendingCommands: null });
+
+          // Refresh goals to show newly created goals
+          await get().fetchGoals();
+
+          // Add success message
+          set((state) => ({
+            creationChat: {
+              ...state.creationChat,
+              messages: [
+                ...state.creationChat.messages,
+                {
+                  id: 'confirm-' + Date.now(),
+                  role: 'assistant',
+                  content: '✅ Goals created successfully!',
+                  timestamp: new Date(),
+                },
+              ],
+            },
+          }));
+        } catch (error) {
+          console.error('Failed to confirm commands:', error);
+          set((state) => ({
+            creationChat: {
+              ...state.creationChat,
+              messages: [
+                ...state.creationChat.messages,
+                {
+                  id: 'error-' + Date.now(),
+                  role: 'assistant',
+                  content: `❌ Failed to create goals: ${error instanceof Error ? error.message : 'Unknown error'}`,
+                  timestamp: new Date(),
+                },
+              ],
+            },
+          }));
+        }
+      },
 
       // Goal creation mode actions
       startGoalCreation: () => {
@@ -726,9 +1001,15 @@ export const useAppStore = create<AppState>()(
           set({ isLoading: true, error: null });
           const user = await authService.getProfile();
           set({ user, isLoading: false });
-        } catch (error) {
+        } catch (error: any) {
           console.error('Failed to fetch user:', error);
-          set({ error: 'Failed to fetch user profile', isLoading: false });
+          // Auto-enable demo mode on 401 Unauthorized
+          if (error?.response?.status === 401 || error?.status === 401) {
+            console.log('⚠️ Authentication failed - enabling demo mode');
+            set({ error: null, isLoading: false, isDemoMode: true });
+          } else {
+            set({ error: 'Failed to fetch user profile', isLoading: false });
+          }
         }
       },
 
@@ -739,9 +1020,16 @@ export const useAppStore = create<AppState>()(
           const filters = category !== 'all' ? { type: category } : undefined;
           const goals = await goalsService.getAll(filters);
           set({ goals, isLoading: false });
-        } catch (error) {
+        } catch (error: any) {
           console.error('Failed to fetch goals:', error);
-          set({ error: 'Failed to fetch goals', isLoading: false });
+          // Auto-enable demo mode on 401 Unauthorized
+          if (error?.response?.status === 401 || error?.status === 401) {
+            console.log('⚠️ Authentication failed - enabling demo mode');
+            // Don't overwrite existing goals - they might be from localStorage or demo initialization
+            set({ error: null, isLoading: false, isDemoMode: true });
+          } else {
+            set({ error: 'Failed to fetch goals', isLoading: false });
+          }
         }
       },
 
@@ -764,6 +1052,8 @@ export const useAppStore = create<AppState>()(
       partialize: (state) => ({
         // Persist user for session continuity
         user: state.user,
+        // Persist demo mode flag
+        isDemoMode: state.isDemoMode,
         // Persist goals for demo mode (real users fetch from API)
         goals: state.goals,
         settings: state.settings,

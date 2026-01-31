@@ -21,6 +21,9 @@ export interface StreamChunk {
   content: string;
   done: boolean;
   shouldEnterGoalCreation?: boolean;
+  goalPreview?: string;
+  awaitingConfirmation?: boolean;
+  commands?: Array<{ type: string; data: any }>;
 }
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';

@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ExternalLink, Trash2, Archive, TrendingDown, Package, Clock, ChevronDown, ChevronUp, Layers } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ItemGoal } from '@/types/goals';
+import { ScannerPlaceholder } from './ScannerPlaceholder';
 
 interface StackedItemGoalCardProps {
   goals: ItemGoal[];
@@ -27,13 +28,16 @@ const springConfig = {
   damping: 25,
 };
 
-export const StackedItemGoalCard: React.FC<StackedItemGoalCardProps> = ({
+export const StackedItemGoalCard = React.forwardRef<
+  HTMLDivElement,
+  StackedItemGoalCardProps
+>(({
   goals,
   onViewDetail,
   onDelete,
   onArchive,
   animationIndex,
-}) => {
+}, ref) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const shouldAnimate = animationIndex >= 0;
   
@@ -49,6 +53,7 @@ export const StackedItemGoalCard: React.FC<StackedItemGoalCardProps> = ({
 
   return (
     <motion.div
+      ref={ref}
       initial={shouldAnimate ? { opacity: 0, scale: 0.8, y: 30 } : { opacity: 1, scale: 1, y: 0 }}
       animate={{ opacity: 1, scale: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.95 }}
@@ -80,12 +85,29 @@ export const StackedItemGoalCard: React.FC<StackedItemGoalCardProps> = ({
       >
         {/* Image Section */}
         <div className="relative h-40 overflow-hidden rounded-t-lg">
-          <img
-            src={frontGoal.productImage}
-            alt={frontGoal.title}
-            className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent" />
+          {/* Show scanner placeholder for default/placeholder images */}
+          {frontGoal.productImage?.includes('unsplash.com') ? (
+            <ScannerPlaceholder
+              status={
+                frontGoal.statusBadge === 'pending_search' || frontGoal.statusBadge === 'pending-search'
+                  ? 'initiating'
+                  : (frontGoal.candidates && frontGoal.candidates.length > 0)
+                  ? 'decoding'
+                  : 'initiating'
+              }
+              signalCount={frontGoal.candidates?.length || 0}
+              className="h-full"
+            />
+          ) : (
+            <>
+              <img
+                src={frontGoal.productImage}
+                alt={frontGoal.title}
+                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent" />
+            </>
+          )}
           
           {/* Status Badge */}
           <div className="absolute top-3 left-3">
@@ -165,11 +187,25 @@ export const StackedItemGoalCard: React.FC<StackedItemGoalCardProps> = ({
               >
                 {/* Thumbnail */}
                 <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0">
-                  <img
-                    src={goal.productImage}
-                    alt={goal.title}
-                    className="w-full h-full object-cover transition-transform duration-300 group-hover/item:scale-110"
-                  />
+                  {goal.productImage?.includes('unsplash.com') ? (
+                    <ScannerPlaceholder
+                      status={
+                        goal.statusBadge === 'pending_search' || goal.statusBadge === 'pending-search'
+                          ? 'initiating'
+                          : (goal.candidates && goal.candidates.length > 0)
+                          ? 'decoding'
+                          : 'initiating'
+                      }
+                      signalCount={goal.candidates?.length || 0}
+                      className="w-full h-full"
+                    />
+                  ) : (
+                    <img
+                      src={goal.productImage}
+                      alt={goal.title}
+                      className="w-full h-full object-cover transition-transform duration-300 group-hover/item:scale-110"
+                    />
+                  )}
                 </div>
 
                 {/* Info */}
@@ -223,4 +259,6 @@ export const StackedItemGoalCard: React.FC<StackedItemGoalCardProps> = ({
       </AnimatePresence>
     </motion.div>
   );
-};
+});
+
+StackedItemGoalCard.displayName = 'StackedItemGoalCard';

@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, X, Sparkles, Minimize2, Maximize2, Check, XCircle } from 'lucide-react';
+import { Send, X, Sparkles, Minimize2, Maximize2, Check, XCircle, Edit3 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/store/useAppStore';
 import type { Message } from '@/types/goals';
@@ -38,6 +38,26 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
     externalOnToggleMinimize?.();
   };
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Handle edit - just focus the input for user to type
+  const handleEdit = () => {
+    inputRef.current?.focus();
+  };
+
+  // Handle cancel - call the cancel endpoint
+  const handleCancel = () => {
+    cancelPendingCommands();
+  };
+
+  // Handle confirm - execute the pending commands
+  const handleConfirm = () => {
+    if (mode === 'creation') {
+      confirmPendingCommands();
+    } else {
+      confirmGoalCreation();
+    }
+  };
 
   const {
     creationChat,
@@ -49,6 +69,9 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
     stopGoalCreation,
     isCreatingGoal,
     goals,
+    cancelPendingCommands,
+    confirmPendingCommands,
+    pendingCommands,
   } = useAppStore();
 
   const chat = mode === 'creation' ? creationChat : goalChats[goalId || ''] || { messages: [], isLoading: false };
@@ -220,7 +243,9 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                 <MessageBubble
                   key={message.id}
                   message={message}
-                  onConfirm={mode === 'creation' && message.awaitingConfirmation ? confirmGoalCreation : undefined}
+                  onConfirm={message.awaitingConfirmation ? handleConfirm : undefined}
+                  onEdit={message.awaitingConfirmation ? handleEdit : undefined}
+                  onCancel={message.awaitingConfirmation ? handleCancel : undefined}
                   isExiting={isExitingGoal}
                 />
               ))}
@@ -265,6 +290,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
             >
               <Sparkles className="w-4 h-4 text-primary/60" />
               <input
+                ref={inputRef}
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
@@ -292,11 +318,16 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
   );
 };
 
-const MessageBubble: React.FC<{
-  message: Message;
-  onConfirm?: () => void;
-  isExiting?: boolean;
-}> = ({ message, onConfirm, isExiting }) => {
+const MessageBubble = React.forwardRef<
+  HTMLDivElement,
+  {
+    message: Message;
+    onConfirm?: () => void;
+    onEdit?: () => void;
+    onCancel?: () => void;
+    isExiting?: boolean;
+  }
+>(({ message, onConfirm, onEdit, onCancel, isExiting }, ref) => {
   const isUser = message.role === 'user';
   const hasGoalPreview = message.goalPreview && message.awaitingConfirmation;
 
@@ -304,6 +335,7 @@ const MessageBubble: React.FC<{
   if (hasGoalPreview) {
     return (
       <motion.div
+        ref={ref}
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         exit={isExiting ? { opacity: 0, y: 30 } : { opacity: 0 }}
@@ -322,22 +354,54 @@ const MessageBubble: React.FC<{
           </div>
 
           {/* Confirmation Buttons */}
-          <div className="flex gap-2">
+          <div className="flex flex-col lg:flex-row lg:justify-end gap-2">
+            {/* Cancel Button */}
+            <button
+              onClick={onCancel}
+              className={cn(
+                "group relative flex items-center gap-2 rounded-lg bg-destructive/20 text-destructive hover:bg-destructive/30 font-medium text-sm transition-all",
+                // Mobile: full width with icon and text
+                "w-full px-4 py-2",
+                // Desktop: centered icon, expand and slide left on hover
+                "lg:w-auto lg:px-3 lg:py-2 lg:hover:px-4 lg:justify-center"
+              )}
+            >
+              <X className="w-4 h-4 flex-shrink-0 lg:group-hover:-translate-x-2 transition-transform duration-150" />
+              <span className="lg:inline lg:max-w-0 lg:opacity-0 lg:overflow-hidden lg:whitespace-nowrap lg:group-hover:max-w-xs lg:group-hover:opacity-100 transition-all duration-150">
+                Cancel
+              </span>
+            </button>
+            {/* Edit Button */}
+            <button
+              onClick={onEdit}
+              className={cn(
+                "group relative flex items-center gap-2 rounded-lg bg-muted text-foreground hover:bg-muted/70 font-medium text-sm transition-all",
+                // Mobile: full width with icon and text
+                "w-full px-4 py-2",
+                // Desktop: centered icon, expand and slide left on hover
+                "lg:w-auto lg:px-3 lg:py-2 lg:hover:px-4 lg:justify-center"
+              )}
+            >
+              <Edit3 className="w-4 h-4 flex-shrink-0 lg:group-hover:-translate-x-2 transition-transform duration-150" />
+              <span className="lg:inline lg:max-w-0 lg:opacity-0 lg:overflow-hidden lg:whitespace-nowrap lg:group-hover:max-w-xs lg:group-hover:opacity-100 transition-all duration-150">
+                Edit
+              </span>
+            </button>
+            {/* Confirm Button */}
             <button
               onClick={onConfirm}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gradient-neon text-primary-foreground font-medium text-sm transition-all hover:scale-105 neon-glow-cyan"
+              className={cn(
+                "group relative flex items-center gap-2 rounded-lg bg-gradient-neon text-primary-foreground font-medium text-sm transition-all neon-glow-cyan",
+                // Mobile: full width with icon and text
+                "w-full px-4 py-2",
+                // Desktop: centered icon, expand and slide left on hover
+                "lg:w-auto lg:px-3 lg:py-2 lg:hover:px-4 lg:justify-center"
+              )}
             >
-              🚀 Create Goal
-            </button>
-            <button
-              onClick={() => {
-                // User wants to edit - just enable the input for them to type changes
-                // The AI will understand they want to modify the goal
-              }}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-muted text-foreground font-medium text-sm transition-all hover:bg-muted/70 hover:scale-105"
-            >
-              <XCircle className="w-4 h-4" />
-              Edit Details
+              <Check className="w-4 h-4 flex-shrink-0 lg:group-hover:-translate-x-2 transition-transform duration-150" />
+              <span className="lg:inline lg:max-w-0 lg:opacity-0 lg:overflow-hidden lg:whitespace-nowrap lg:group-hover:max-w-xs lg:group-hover:opacity-100 transition-all duration-150">
+                Confirm
+              </span>
             </button>
           </div>
 
@@ -351,6 +415,7 @@ const MessageBubble: React.FC<{
 
   return (
     <motion.div
+      ref={ref}
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       exit={isExiting ? { opacity: 0, y: 30, transition: { duration: 0.3 } } : { opacity: 0 }}
@@ -383,4 +448,6 @@ const MessageBubble: React.FC<{
       </div>
     </motion.div>
   );
-};
+});
+
+MessageBubble.displayName = 'MessageBubble';

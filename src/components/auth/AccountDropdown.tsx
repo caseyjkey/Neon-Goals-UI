@@ -15,14 +15,26 @@ export const AccountDropdown: React.FC<AccountDropdownProps> = ({ isOpen, onClos
   const navigate = useNavigate();
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Close on ESC key
+  // Close on ESC key & prevent body scroll
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onClose]);
+
+    // Prevent body scroll when dropdown is open
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+      return () => {
+        window.removeEventListener('keydown', handleKeyDown);
+        document.body.style.overflow = '';
+      };
+    }
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen, onClose]);
 
   // Close when clicking outside
   useEffect(() => {
@@ -54,17 +66,17 @@ export const AccountDropdown: React.FC<AccountDropdownProps> = ({ isOpen, onClos
     <AnimatePresence>
       {isOpen && (
         <>
-          {/* Backdrop */}
+          {/* Backdrop - starts below header, covers entire page width */}
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[70]"
+            className="fixed inset-0 top-16 bg-black/40 backdrop-blur-sm z-[50]"
             onClick={onClose}
           />
 
-          {/* Dropdown Content - Full screen on desktop, bottom sheet on mobile */}
+          {/* Dropdown Content - Bottom sheet on mobile, right sidebar on desktop */}
           <motion.div
             ref={dropdownRef}
             initial={{ opacity: 0, y: 100 }}
@@ -72,16 +84,17 @@ export const AccountDropdown: React.FC<AccountDropdownProps> = ({ isOpen, onClos
             exit={{ opacity: 0, y: 100 }}
             transition={{ type: 'spring', damping: 25, stiffness: 200 }}
             className={cn(
-              "fixed z-[80]",
+              "fixed z-[61]",
               // Mobile: bottom sheet with max height
               "bottom-0 left-0 right-0",
-              "max-h-[85vh] overflow-y-auto",
+              "max-h-[85vh]",
               "rounded-t-3xl",
               "p-6 pt-4",
-              // Desktop: full panel
-              "lg:top-16 lg:bottom-0 lg:right-0 lg:left-[280px]",
-              "lg:max-h-none lg:rounded-none",
-              "lg:pt-8 lg:pb-8 lg:pr-12 lg:pl-8",
+              // Desktop: fixed-width right sidebar panel
+              "lg:top-16 lg:bottom-0 lg:left-auto lg:right-0 lg:w-[450px]",
+              "lg:max-h-none lg:h-full lg:overflow-y-auto",
+              "lg:rounded-none lg:rounded-l-3xl",
+              "lg:pt-8 lg:pb-8 lg:pr-8 lg:pl-8",
               "glass-card neon-border"
             )}
           >

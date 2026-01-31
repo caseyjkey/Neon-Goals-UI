@@ -205,7 +205,10 @@ interface GoalCardWrapperProps {
   animationIndex: number; // -1 = skip animation, >= 0 = animate with stagger
 }
 
-const GoalCardWrapper: React.FC<GoalCardWrapperProps> = ({
+const GoalCardWrapper = React.forwardRef<
+  HTMLDivElement,
+  GoalCardWrapperProps
+>(({
   goal,
   onViewDetail,
   onDelete,
@@ -213,7 +216,7 @@ const GoalCardWrapper: React.FC<GoalCardWrapperProps> = ({
   onSync,
   onSearch,
   animationIndex,
-}) => {
+}, ref) => {
   switch (goal.type) {
     case 'item':
       return (
@@ -248,4 +251,6 @@ const GoalCardWrapper: React.FC<GoalCardWrapperProps> = ({
     default:
       return null;
   }
-};
+});
+
+GoalCardWrapper.displayName = 'GoalCardWrapper';

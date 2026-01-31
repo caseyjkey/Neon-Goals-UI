@@ -1,15 +1,16 @@
-import React, { useState } from 'react';
-import { Menu, LayoutGrid, List, Bell, Search, LogIn, Target } from 'lucide-react';
+import React from 'react';
+import { Menu, LayoutGrid, List, Bell, Search, LogIn } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { useAppStore } from '@/store/useAppStore';
-import { AccountDropdown } from '@/components/auth/AccountDropdown';
 
 interface HeaderProps {
   className?: string;
+  accountDropdownOpen: boolean;
+  setAccountDropdownOpen: (open: boolean) => void;
 }
 
-export const Header: React.FC<HeaderProps> = ({ className }) => {
+export const Header: React.FC<HeaderProps> = ({ className, accountDropdownOpen, setAccountDropdownOpen }) => {
   const {
     toggleSidebar,
     sidebarOpen,
@@ -17,8 +18,6 @@ export const Header: React.FC<HeaderProps> = ({ className }) => {
     setViewMode,
     user
   } = useAppStore();
-
-  const [accountDropdownOpen, setAccountDropdownOpen] = useState(false);
 
   return (
     <header
@@ -153,12 +152,6 @@ export const Header: React.FC<HeaderProps> = ({ className }) => {
           </Link>
         )}
       </div>
-
-      {/* Account Dropdown */}
-      <AccountDropdown
-        isOpen={accountDropdownOpen}
-        onClose={() => setAccountDropdownOpen(false)}
-      />
     </header>
   );
 };

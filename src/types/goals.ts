@@ -26,7 +26,9 @@ export interface ItemGoal extends Goal {
   searchResults?: ProductSearchResult[];
   // Candidate stack for Tinder-style swiping
   candidates?: ProductCandidate[];
-  selectedCandidateId?: string; // The "winner" candidate
+  selectedCandidateId?: string; // The "winner" candidate (Primary)
+  shortlistedCandidates?: ProductCandidate[]; // Full objects with shortlistedAt timestamp
+  deniedCandidates?: ProductCandidate[]; // Full objects with deniedAt timestamp
   // Card stacking support
   stackId?: string; // Goals with same stackId are grouped together
   stackOrder?: number; // Order within the stack (0 = front)
