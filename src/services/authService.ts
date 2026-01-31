@@ -95,4 +95,143 @@ export const authService = {
     }
     return token;
   },
+
+  // ============ Email/Password Authentication Methods ============
+
+  /**
+   * Register a new user with email and password
+   * Returns verification info - user must verify email before logging in
+   */
+  async register(
+    email: string,
+    password: string,
+    name: string
+  ): Promise<{ message: string; userId: string; verificationToken?: string }> {
+    const response = await fetch(`${API_BASE_URL}/auth/register`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email, password, name }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Registration failed');
+    }
+
+    return await response.json();
+  },
+
+  /**
+   * Verify email with token
+   */
+  async verifyEmail(token: string): Promise<LoginResponse> {
+    const response = await fetch(`${API_BASE_URL}/auth/verify-email`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ token }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Email verification failed');
+    }
+
+    const data = await response.json();
+
+    // Store token in localStorage
+    localStorage.setItem('auth_token', data.access_token);
+    apiClient.setToken(data.access_token);
+
+    return data;
+  },
+
+  /**
+   * Resend verification email
+   */
+  async resendVerification(email: string): Promise<{ message: string; verificationToken?: string }> {
+    const response = await fetch(`${API_BASE_URL}/auth/resend-verification`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Failed to resend verification email');
+    }
+
+    return await response.json();
+  },
+
+  /**
+   * Login with email and password
+   */
+  async loginWithEmail(email: string, password: string): Promise<LoginResponse> {
+    const response = await fetch(`${API_BASE_URL}/auth/login`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email, password }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Login failed');
+    }
+
+    const data = await response.json();
+
+    // Store token in localStorage
+    localStorage.setItem('auth_token', data.access_token);
+    apiClient.setToken(data.access_token);
+
+    return data;
+  },
+
+  /**
+   * Initiate password reset
+   */
+  async forgotPassword(email: string): Promise<{ message: string; resetToken?: string }> {
+    const response = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Password reset request failed');
+    }
+
+    return await response.json();
+  },
+
+  /**
+   * Complete password reset
+   */
+  async resetPassword(token: string, newPassword: string): Promise<{ message: string }> {
+    const response = await fetch(`${API_BASE_URL}/auth/reset-password`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ token, newPassword }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.message || 'Password reset failed');
+    }
+
+    return await response.json();
+  },
 };
