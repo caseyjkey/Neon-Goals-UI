@@ -293,8 +293,8 @@ export const CandidateScanner: React.FC<CandidateScannerProps> = ({
                 onReturnToStack={handleReturnToStack}
               />
 
-              {/* Action Buttons - Hidden when viewing focused shortlist item */}
-              {!focusedShortlistItem && (
+              {/* Action Buttons - Hidden when viewing focused shortlist item or no prospects */}
+              {!focusedShortlistItem && prospects.length > 0 && (
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}

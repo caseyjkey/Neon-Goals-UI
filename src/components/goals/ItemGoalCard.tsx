@@ -108,43 +108,47 @@ export const ItemGoalCard: React.FC<ItemGoalCardProps> = ({
           {goal.description}
         </p>
 
-        {/* Price & Action */}
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-2xl font-heading font-bold neon-text-cyan">
-              {goal.currency === 'USD' ? '$' : goal.currency}
-              {goal.bestPrice.toLocaleString()}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              Best price at {goal.retailerName}
-            </p>
-          </div>
-
-          <div className="flex gap-2">
-            {onSearch && (
-              <button
-                onClick={handleSearch}
-                disabled={isSearching}
-                className={cn(
-                  "flex items-center gap-1.5 px-3 py-2 rounded-lg font-medium text-sm transition-all",
-                  isSearching
-                    ? "bg-muted text-muted-foreground cursor-not-allowed"
-                    : "bg-primary/20 text-primary hover:bg-primary/30 hover:scale-105"
-                )}
-              >
-                {isSearching ? (
-                  <>
-                    <RefreshCw className="w-4 h-4 animate-spin" />
-                    Searching...
-                  </>
-                ) : (
-                  <>
-                    <Search className="w-4 h-4" />
-                    Search
-                  </>
-                )}
-              </button>
+        {/* Search Button */}
+        {onSearch && (
+          <button
+            onClick={handleSearch}
+            disabled={isSearching}
+            className={cn(
+              "w-full flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg font-medium text-sm transition-all mb-3",
+              isSearching
+                ? "bg-muted text-muted-foreground cursor-not-allowed"
+                : "bg-primary/20 text-primary hover:bg-primary/30 hover:scale-105"
             )}
+          >
+            {isSearching ? (
+              <>
+                <RefreshCw className="w-4 h-4 animate-spin" />
+                Searching...
+              </>
+            ) : (
+              <>
+                <Search className="w-4 h-4" />
+                Search for better prices
+              </>
+            )}
+          </button>
+        )}
+
+        {/* Price & Buy */}
+        <div className="pt-3 border-t border-border/30 space-y-2">
+          <p className="text-2xl font-heading font-bold neon-text-cyan">
+            {goal.currency === 'USD' ? '$' : goal.currency}
+            {goal.bestPrice.toLocaleString()}
+          </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs text-muted-foreground">
+                Best price at
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {goal.retailerName}
+              </p>
+            </div>
             <a
               href={goal.retailerUrl}
               target="_blank"

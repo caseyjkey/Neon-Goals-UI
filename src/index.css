@@ -148,6 +148,12 @@
     );
     backdrop-filter: blur(12px);
     border: 1px solid rgba(0, 240, 255, 0.15);
+    /* Prevent card from being split across columns in masonry layout */
+    break-inside: avoid;
+    /* Ensure card displays as block for proper column flow */
+    display: block;
+    /* Prevent card from collapsing */
+    margin-bottom: 0;
   }
 
   .glass-card::before {

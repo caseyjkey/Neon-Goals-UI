@@ -1,6 +1,6 @@
-import React from 'react';
-import { motion } from 'framer-motion';
-import { Trash2, CheckCircle2, Circle, ChevronRight } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Trash2, CheckCircle2, Circle, ChevronDown, ChevronUp, ListTodo } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { ActionGoal } from '@/types/goals';
 
@@ -11,19 +11,43 @@ interface ActionGoalCardProps {
   animationIndex: number;
 }
 
+const springConfig = {
+  type: 'spring' as const,
+  stiffness: 300,
+  damping: 25,
+};
+
 export const ActionGoalCard: React.FC<ActionGoalCardProps> = ({
   goal,
   onViewDetail,
   onDelete,
   animationIndex,
 }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const subgoalsRef = useRef<HTMLDivElement>(null);
   const completedTasks = goal.tasks.filter(t => t.completed).length;
   const totalTasks = goal.tasks.length;
   const progress = goal.completionPercentage;
   const shouldAnimate = animationIndex >= 0;
+  const subgoals = goal.subgoals || [];
 
   // Get next uncompleted task
   const nextTask = goal.tasks.find(t => !t.completed);
+
+  // Toggle expansion and scroll into view
+  const toggleExpanded = () => {
+    setIsExpanded(!isExpanded);
+    // If expanding, scroll into view after animation completes
+    if (!isExpanded) {
+      setTimeout(() => {
+        subgoalsRef.current?.scrollIntoView({
+          behavior: 'smooth',
+          block: 'start',
+          inline: 'nearest',
+        });
+      }, 400); // Wait for spring animation to complete
+    }
+  };
 
   return (
     <motion.div
@@ -31,36 +55,53 @@ export const ActionGoalCard: React.FC<ActionGoalCardProps> = ({
       animate={{ opacity: 1, scale: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.95 }}
       transition={{
-        type: 'spring',
-        stiffness: 300,
-        damping: 25,
+        ...springConfig,
         delay: shouldAnimate ? animationIndex * 0.08 : 0,
       }}
-      whileHover={{ y: -4, scale: 1.02, transition: { type: 'spring', stiffness: 400, damping: 25 } }}
-      whileTap={{ scale: 0.98 }}
-      className="glass-card hover-lift cursor-pointer group p-5"
-      onClick={() => onViewDetail(goal.id)}
+      className="relative"
     >
-      {/* Header */}
-      <div className="flex items-start justify-between mb-4">
-        <div className="flex-1">
-          <h3 className="font-heading font-semibold text-foreground text-lg mb-1">
-            {goal.title}
-          </h3>
-          <p className="text-sm text-muted-foreground line-clamp-2">
-            {goal.description}
-          </p>
+      {/* Main Card */}
+      <motion.div
+        whileHover={!isExpanded ? { y: -4, scale: 1.02, transition: springConfig } : undefined}
+        whileTap={!isExpanded ? { scale: 0.98 } : undefined}
+        className="glass-card hover-lift cursor-pointer group p-5 relative z-10"
+        onClick={() => !isExpanded && onViewDetail(goal.id)}
+      >
+        {/* Header */}
+        <div className="flex items-start justify-between mb-4">
+          <div className="flex-1">
+            <h3 className="font-heading font-semibold text-foreground text-lg mb-1">
+              {goal.title}
+            </h3>
+            <p className="text-sm text-muted-foreground line-clamp-2">
+              {goal.description}
+            </p>
+          </div>
+
+          {/* Top Right Actions */}
+          <div className="flex gap-2">
+            {/* Subgoals Pill */}
+            {subgoals.length > 0 && (
+              <button
+                onClick={(e) => { e.stopPropagation(); toggleExpanded(); }}
+                className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-background/80 backdrop-blur-sm text-primary font-medium text-xs transition-all hover:bg-primary/20"
+              >
+                <ListTodo className="w-3.5 h-3.5" />
+                {subgoals.length} subgoals
+                {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+              </button>
+            )}
+
+            {/* Delete Button */}
+            <button
+              onClick={(e) => { e.stopPropagation(); onDelete(goal.id); }}
+              className="p-3 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity bg-muted/50 text-muted-foreground hover:text-destructive hover:bg-muted min-w-[44px] min-h-[44px] flex items-center justify-center"
+              aria-label="Delete"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          </div>
         </div>
-        
-        {/* Delete Button */}
-        <button
-          onClick={(e) => { e.stopPropagation(); onDelete(goal.id); }}
-          className="p-3 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity bg-muted/50 text-muted-foreground hover:text-destructive hover:bg-muted min-w-[44px] min-h-[44px] flex items-center justify-center"
-          aria-label="Delete"
-        >
-          <Trash2 className="w-4 h-4" />
-        </button>
-      </div>
 
       {/* Progress Circle */}
       <div className="flex items-center gap-4 mb-4">
@@ -151,11 +192,89 @@ export const ActionGoalCard: React.FC<ActionGoalCardProps> = ({
         <span className="text-xs text-muted-foreground">
           Updated {new Date(goal.updatedAt).toLocaleDateString()}
         </span>
-        <div className="flex items-center gap-1 text-sm font-medium text-primary group-hover:neon-text-cyan transition-all">
-          View Tasks
-          <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-        </div>
+        {subgoals.length > 0 && (
+          <button
+            onClick={(e) => { e.stopPropagation(); toggleExpanded(); }}
+            className="flex items-center gap-1 text-sm font-medium text-primary hover:neon-text-cyan transition-all"
+          >
+            {isExpanded ? 'Collapse' : 'View Subgoals'}
+            {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+          </button>
+        )}
       </div>
+      </motion.div>
+
+      {/* Expanded Subgoals */}
+      <AnimatePresence>
+        {isExpanded && subgoals.length > 0 && (
+          <motion.div
+            ref={subgoalsRef}
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={springConfig}
+            className="mt-3 space-y-2 overflow-hidden"
+          >
+            {subgoals.map((subgoal, idx) => (
+              <motion.div
+                key={subgoal.id}
+                initial={{ opacity: 0, x: -20, scale: 0.95 }}
+                animate={{ opacity: 1, x: 0, scale: 1 }}
+                exit={{ opacity: 0, x: -20, scale: 0.95 }}
+                transition={{ ...springConfig, delay: idx * 0.05 }}
+                onClick={() => onViewDetail(subgoal.id)}
+                className="glass-card p-3 cursor-pointer hover:neon-border transition-all group/subgoal"
+              >
+                {/* Header */}
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex-1">
+                    <h4 className="font-medium text-foreground text-sm">
+                      {subgoal.title}
+                    </h4>
+                    <p className="text-xs text-muted-foreground line-clamp-1">
+                      {subgoal.description}
+                    </p>
+                  </div>
+
+                  {/* Status Badge */}
+                  <span className={cn(
+                    "px-2 py-0.5 rounded text-xs font-medium",
+                    subgoal.status === 'completed' && "bg-success/20 text-success",
+                    subgoal.status === 'active' && "bg-primary/20 text-primary",
+                    subgoal.status === 'archived' && "bg-muted/50 text-muted-foreground"
+                  )}>
+                    {subgoal.status}
+                  </span>
+                </div>
+
+                {/* Subgoal Tasks Progress (if it's an action goal subgoal) */}
+                {subgoal.type === 'action' && 'tasks' in subgoal && (
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 h-1.5 bg-muted/30 rounded-full overflow-hidden">
+                      <motion.div
+                        className="h-full bg-gradient-neon"
+                        initial={{ width: 0 }}
+                        animate={{ width: `${subgoal.completionPercentage || 0}%` }}
+                        transition={{ duration: 0.5 }}
+                      />
+                    </div>
+                    <span className="text-xs text-muted-foreground">
+                      {subgoal.tasks?.filter((t: any) => t.completed).length || 0}/{subgoal.tasks?.length || 0}
+                    </span>
+                  </div>
+                )}
+
+                {/* Target Date (if set) */}
+                {subgoal.targetDate && (
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Target: {new Date(subgoal.targetDate).toLocaleDateString()}
+                  </p>
+                )}
+              </motion.div>
+            ))}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 };

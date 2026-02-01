@@ -40,8 +40,14 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Handle edit - just focus the input for user to type
-  const handleEdit = () => {
+  // Handle edit - add a message asking what to change and focus the input
+  const handleEdit = async () => {
+    const editMessage = "What would you like to change?";
+    if (mode === 'creation') {
+      await sendCreationMessage(editMessage);
+    } else if (goalId) {
+      await sendGoalMessage(goalId, editMessage);
+    }
     inputRef.current?.focus();
   };
 

@@ -147,14 +147,18 @@ export const GoalGrid: React.FC<GoalGridProps> = ({ className }) => {
     );
   }
 
-  // Card View - grid of cards with stacking support
+  // Card View - masonry layout with stacking support
   let animationCounter = 0;
-  
+
   return (
     <div
       className={cn(
-        "grid gap-4 md:gap-6",
-        "grid-cols-1 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4",
+        // Masonry layout using CSS columns
+        "columns-1 md:columns-2 lg:columns-2 xl:columns-3 2xl:columns-4",
+        // Gap between columns and items
+        "gap-4 md:gap-6",
+        // Prevent container from collapsing
+        "w-full",
         className
       )}
     >

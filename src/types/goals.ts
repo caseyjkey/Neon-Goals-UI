@@ -2,6 +2,18 @@ export type GoalType = 'item' | 'finance' | 'action';
 export type GoalStatus = 'active' | 'completed' | 'archived';
 export type ItemStatusBadge = 'in-stock' | 'price-drop' | 'pending-search' | 'in_stock' | 'price_drop' | 'pending_search';
 
+export type ScrapeJobStatus = 'pending' | 'running' | 'completed' | 'failed';
+
+export interface ScrapeJob {
+  id: string;
+  goalId: string;
+  status: ScrapeJobStatus;
+  startedAt?: Date;
+  completedAt?: Date;
+  error?: string;
+  results?: any;
+}
+
 export interface Goal {
   id: string;
   type: GoalType;
@@ -32,6 +44,8 @@ export interface ItemGoal extends Goal {
   // Card stacking support
   stackId?: string; // Goals with same stackId are grouped together
   stackOrder?: number; // Order within the stack (0 = front)
+  // Search filters for scraping
+  searchFilters?: Record<string, any>; // JSON field for flexible search parameters
 }
 
 export interface ProductSearchResult {

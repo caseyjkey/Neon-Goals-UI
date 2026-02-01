@@ -738,15 +738,31 @@ export const useAppStore = create<AppState>()(
       // Item actions
       searchAndUpdateGoal: async (goalId, query) => {
         try {
-          const updatedGoal = await browserUseService.searchAndUpdateGoal(goalId, query);
-          // Update the goal in the local state
+          // Immediately update status to searching
           set((state) => ({
             goals: state.goals.map((goal) =>
-              goal.id === goalId ? updatedGoal : goal
+              goal.id === goalId && goal.type === 'item'
+                ? { ...goal, statusBadge: 'pending_search' }
+                : goal
             ),
           }));
+
+          // Call the new endpoint
+          await goalsService.refreshCandidates(goalId);
+
+          // Note: The backend will process the job asynchronously
+          // Candidates will be updated within ~2 minutes
+          console.log('[searchAndUpdateGoal] Scraping job queued for goal:', goalId);
         } catch (error) {
-          console.error('Failed to search and update goal:', error);
+          console.error('Failed to refresh candidates:', error);
+          // Revert status on error
+          set((state) => ({
+            goals: state.goals.map((goal) =>
+              goal.id === goalId && goal.statusBadge === 'pending_search'
+                ? { ...goal, statusBadge: 'in_stock' }
+                : goal
+            ),
+          }));
         }
       },
 

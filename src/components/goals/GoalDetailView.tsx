@@ -6,6 +6,7 @@ import { useAppStore } from '@/store/useAppStore';
 import { SIDEBAR_HANDLE_WIDTH } from '@/components/layout/Sidebar';
 import { CandidateScanner } from './scanner/CandidateScanner';
 import { ScannerPlaceholder } from './ScannerPlaceholder';
+import { ScrapeStatusCard } from './ScrapeStatusCard';
 import type { Goal, ItemGoal, FinanceGoal, ActionGoal, ProductCandidate } from '@/types/goals';
 
 interface GoalDetailViewProps {
@@ -57,7 +58,7 @@ const itemVariants = {
 
 export const GoalDetailView: React.FC<GoalDetailViewProps> = ({ goal, onClose }) => {
   const [isDesktop, setIsDesktop] = useState(false);
-  const { isChatMinimized, updateGoal } = useAppStore();
+  const { isChatMinimized, updateGoal, searchAndUpdateGoal } = useAppStore();
 
   const onCloseRef = useRef(onClose);
   useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
@@ -168,6 +169,8 @@ const ItemGoalDetail: React.FC<{ goal: ItemGoal }> = ({ goal }) => {
     goal.candidates?.[0] || null
   );
   const [hasNewCandidates, setHasNewCandidates] = useState(false);
+  // Track candidate count before search to detect new candidates after search completes
+  const [candidateCountBeforeSearch, setCandidateCountBeforeSearch] = useState<number | null>(null);
 
   // Check if there are any candidates OR shortlisted items OR a selected candidate
   const hasCandidates = (goal.candidates && goal.candidates.length > 0) ||
@@ -200,18 +203,38 @@ const ItemGoalDetail: React.FC<{ goal: ItemGoal }> = ({ goal }) => {
 
     return activeProspects.length;
   })();
-  
-  // Simulate new candidate detection (in real app, this would come from scraper)
+
+  // Track search status changes to detect new candidates
+  const prevStatusRef = useRef(goal.statusBadge);
   useEffect(() => {
-    // Random chance to show "new candidate" indicator for demo
-    const timer = setTimeout(() => {
-      if (Math.random() > 0.7 && hasCandidates) {
-        setHasNewCandidates(true);
-      }
-    }, 3000);
-    return () => clearTimeout(timer);
-  }, [hasCandidates]);
-  
+    const prevStatus = prevStatusRef.current;
+    const currentStatus = goal.statusBadge;
+
+    // When entering searching state, store current candidate count
+    const isEnteringSearch = (currentStatus === 'pending_search' || currentStatus === 'pending-search') &&
+                            prevStatus !== 'pending_search' && prevStatus !== 'pending-search';
+
+    // When leaving searching state, compare candidate counts
+    const isLeavingSearch = (prevStatus === 'pending_search' || prevStatus === 'pending-search') &&
+                           currentStatus !== 'pending_search' && currentStatus !== 'pending-search';
+
+    if (isEnteringSearch) {
+      // Store candidate count before search starts
+      setCandidateCountBeforeSearch(goal.candidates?.length ?? 0);
+      console.log('[ItemGoalDetail] Starting search, candidate count:', goal.candidates?.length ?? 0);
+    } else if (isLeavingSearch && candidateCountBeforeSearch !== null) {
+      // Compare counts after search completes
+      const newCount = goal.candidates?.length ?? 0;
+      const oldCount = candidateCountBeforeSearch;
+      const hasNew = newCount > oldCount;
+
+      console.log('[ItemGoalDetail] Search completed, old:', oldCount, 'new:', newCount, 'hasNew:', hasNew);
+      setHasNewCandidates(hasNew);
+    }
+
+    prevStatusRef.current = currentStatus;
+  }, [goal.statusBadge, goal.candidates?.length, candidateCountBeforeSearch]);
+
   const handleSelectCandidate = (candidate: ProductCandidate) => {
     setSelectedCandidate(candidate);
     setHasNewCandidates(false);
@@ -493,6 +516,15 @@ const ItemGoalDetail: React.FC<{ goal: ItemGoal }> = ({ goal }) => {
           </div>
         </motion.div>
 
+        {/* Scrape Status Card - Shows when searching or has recent jobs */}
+        <motion.div variants={itemVariants}>
+          <ScrapeStatusCard
+            goal={goal}
+            onFiltersUpdate={(filters) => updateGoal(goal.id, { searchFilters: filters } as any)}
+            onRefresh={() => searchAndUpdateGoal(goal.id)}
+          />
+        </motion.div>
+
         {/* Subgoals Section */}
         <SubgoalsSection goal={goal} />
       </div>
@@ -654,12 +686,22 @@ const ActionGoalDetail: React.FC<{ goal: ActionGoal }> = ({ goal }) => {
   const { toggleTask, addTask } = useAppStore();
   const [newTask, setNewTask] = React.useState('');
 
+  // Combine tasks and subgoals into a unified list
+  // Subgoals are shown as clickable items that navigate to their detail view
+  const subgoals = goal.subgoals || [];
+  console.log('[ActionGoalDetail] goal.subgoals:', goal.subgoals, 'subgoals:', subgoals);
+
   const handleAddTask = (e: React.FormEvent) => {
     e.preventDefault();
     if (newTask.trim()) {
       addTask(goal.id, newTask.trim());
       setNewTask('');
     }
+  };
+
+  // Navigate to subgoal detail
+  const handleSubgoalClick = (subgoalId: string) => {
+    window.location.href = `/goals/${subgoalId}`;
   };
 
   return (
@@ -744,10 +786,15 @@ const ActionGoalDetail: React.FC<{ goal: ActionGoal }> = ({ goal }) => {
 
       {/* Task List */}
       <motion.div variants={itemVariants} className="glass-card p-6">
-        <h3 className="font-heading font-semibold text-lg text-foreground mb-4">
-          Tasks
-        </h3>
-        
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="font-heading font-semibold text-lg text-foreground">
+            Tasks & Subgoals
+          </h3>
+          <span className="text-sm text-muted-foreground">
+            {goal.tasks.length} tasks, {subgoals.length} subgoals
+          </span>
+        </div>
+
         {/* Add Task Form */}
         <form onSubmit={handleAddTask} className="flex gap-2 mb-4">
           <div className="flex-1 flex items-center gap-2 px-4 py-3 rounded-xl bg-muted/30 border border-border/50 focus-within:border-primary/50 transition-all">
@@ -775,7 +822,7 @@ const ActionGoalDetail: React.FC<{ goal: ActionGoal }> = ({ goal }) => {
         </form>
 
         {/* Tasks */}
-        <motion.div 
+        <motion.div
           variants={containerVariants}
           className="space-y-2"
         >
@@ -806,11 +853,61 @@ const ActionGoalDetail: React.FC<{ goal: ActionGoal }> = ({ goal }) => {
               </span>
             </motion.button>
           ))}
+
+          {/* Subgoals as tasks */}
+          {subgoals.map((subgoal, index) => {
+            // Calculate completion for action subgoals
+            const isActionSubgoal = subgoal.type === 'action';
+            const completion = isActionSubgoal && 'completionPercentage' in subgoal
+              ? (subgoal as any).completionPercentage
+              : subgoal.status === 'completed' ? 100 : 0;
+            const isCompleted = completion === 100;
+
+            return (
+              <motion.button
+                key={subgoal.id}
+                variants={itemVariants}
+                custom={goal.tasks.length + index}
+                layout
+                onClick={() => handleSubgoalClick(subgoal.id)}
+                className={cn(
+                  "w-full flex items-center gap-3 px-4 py-3 rounded-xl text-left transition-all",
+                  isCompleted
+                    ? "bg-success/10 border border-success/30"
+                    : "bg-primary/10 border border-primary/30 hover:border-primary/50"
+                )}
+              >
+                <Layers className={cn(
+                  "w-5 h-5 flex-shrink-0",
+                  isCompleted ? "text-success" : "text-primary"
+                )} />
+                <span className={cn(
+                  "flex-1 text-sm",
+                  isCompleted ? "text-muted-foreground line-through" : "text-foreground"
+                )}>
+                  {subgoal.title}
+                </span>
+                <span className={cn(
+                  "text-xs px-2 py-1 rounded-full",
+                  subgoal.type === 'item' && "badge-info",
+                  subgoal.type === 'finance' && "badge-accent",
+                  subgoal.type === 'action' && "badge-success"
+                )}>
+                  {subgoal.type}
+                </span>
+                {isActionSubgoal && (
+                  <span className="text-xs text-muted-foreground">
+                    {completion}%
+                  </span>
+                )}
+              </motion.button>
+            );
+          })}
         </motion.div>
       </motion.div>
 
-      {/* Subgoals Section */}
-      <SubgoalsSection goal={goal} />
+      {/* Subgoals Section - showing more details */}
+      {subgoals.length > 0 && <SubgoalsSection goal={goal} />}
     </div>
   );
 };

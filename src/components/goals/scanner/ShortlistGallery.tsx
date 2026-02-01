@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Star, Crown, ChevronLeft, ChevronRight, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -30,6 +30,37 @@ export const ShortlistGallery: React.FC<ShortlistGalleryProps> = ({
   focusedItemId,
 }) => {
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  // Check scroll position
+  const checkScroll = useCallback(() => {
+    if (scrollRef.current) {
+      const { scrollLeft, scrollWidth, clientWidth } = scrollRef.current;
+      setCanScrollLeft(scrollLeft > 10); // Small threshold to account for rounding
+      setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 10);
+    }
+  }, []);
+
+  // Check scroll on mount and when shortlist changes
+  useEffect(() => {
+    checkScroll();
+  }, [shortlist.length, checkScroll]);
+
+  // Also check on scroll and resize
+  useEffect(() => {
+    const container = scrollRef.current;
+    if (!container) return;
+
+    const handleScroll = () => checkScroll();
+    container.addEventListener('scroll', handleScroll);
+    window.addEventListener('resize', checkScroll);
+
+    return () => {
+      container.removeEventListener('scroll', handleScroll);
+      window.removeEventListener('resize', checkScroll);
+    };
+  }, [checkScroll]);
 
   const scroll = (direction: 'left' | 'right') => {
     if (scrollRef.current) {
@@ -82,21 +113,46 @@ export const ShortlistGallery: React.FC<ShortlistGalleryProps> = ({
         )}
       </AnimatePresence>
 
-      {/* Scroll Controls */}
+      {/* Gradient Overlays & Scroll Controls */}
       {shortlist.length > 3 && (
         <>
-          <button
-            onClick={() => scroll('left')}
-            className="absolute left-2 top-1/2 -translate-y-1/2 z-10 p-2 rounded-full bg-background/80 backdrop-blur-sm border border-border hover:bg-muted transition-colors"
-          >
-            <ChevronLeft className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => scroll('right')}
-            className="absolute right-2 top-1/2 -translate-y-1/2 z-10 p-2 rounded-full bg-background/80 backdrop-blur-sm border border-border hover:bg-muted transition-colors"
-          >
-            <ChevronRight className="w-4 h-4" />
-          </button>
+          {/* Left Gradient & Chevron */}
+          <div className={cn(
+            "absolute left-0 top-0 bottom-0 z-10 flex items-center pointer-events-none transition-opacity duration-200",
+            !canScrollLeft && "opacity-0"
+          )}>
+            <div className="relative h-full">
+              {/* Gradient overlay */}
+              <div className="absolute inset-y-0 left-0 w-20 bg-gradient-to-r from-muted/20 to-transparent pointer-events-none" />
+              {/* Chevron button on opaque portion */}
+              <button
+                onClick={() => scroll('left')}
+                className="absolute left-3 top-1/2 -translate-y-1/2 p-2 rounded-full bg-background/80 backdrop-blur-sm border border-border hover:bg-muted transition-colors pointer-events-auto"
+                aria-label="Scroll left"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+
+          {/* Right Gradient & Chevron */}
+          <div className={cn(
+            "absolute right-0 top-0 bottom-0 z-10 flex items-center pointer-events-none transition-opacity duration-200",
+            !canScrollRight && "opacity-0"
+          )}>
+            <div className="relative h-full">
+              {/* Gradient overlay */}
+              <div className="absolute inset-y-0 right-0 w-20 bg-gradient-to-l from-muted/20 to-transparent pointer-events-none" />
+              {/* Chevron button on opaque portion */}
+              <button
+                onClick={() => scroll('right')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-full bg-background/80 backdrop-blur-sm border border-border hover:bg-muted transition-colors pointer-events-auto"
+                aria-label="Scroll right"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
         </>
       )}
 
