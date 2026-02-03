@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SIDEBAR_WIDTH, SIDEBAR_HANDLE_WIDTH } from '@/components/layout/Sidebar';
 import { GoalGrid } from '@/components/goals/GoalGrid';
@@ -6,6 +6,19 @@ import { GoalDetailView } from '@/components/goals/GoalDetailView';
 import { FinancialSummary } from '@/components/goals/FinancialSummary';
 import { useAppStore } from '@/store/useAppStore';
 import { cn } from '@/lib/utils';
+import type { Goal } from '@/types/goals';
+
+// Recursively find a goal by ID in the goals array (including nested subgoals)
+const findGoalById = (goals: Goal[], id: string): Goal | null => {
+  for (const goal of goals) {
+    if (goal.id === id) return goal;
+    if (goal.subgoals && goal.subgoals.length > 0) {
+      const found = findGoalById(goal.subgoals, id);
+      if (found) return found;
+    }
+  }
+  return null;
+};
 
 const Index = () => {
   const [isDesktop, setIsDesktop] = useState(false);
@@ -37,7 +50,11 @@ const Index = () => {
     }
   }, [currentGoalId, closeGoal]);
 
-  const currentGoal = currentGoalId ? goals.find(g => g.id === currentGoalId) : null;
+  // Find current goal - search recursively through subgoals
+  const currentGoal = useMemo(() => {
+    if (!currentGoalId) return null;
+    return findGoalById(goals, currentGoalId);
+  }, [currentGoalId, goals]);
 
   // Handle sidebar open/close based on screen size
   useEffect(() => {
