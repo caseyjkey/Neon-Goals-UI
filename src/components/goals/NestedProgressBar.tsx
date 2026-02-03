@@ -6,6 +6,7 @@ import type { Goal, FinanceGoal } from '@/types/goals';
 interface NestedProgressBarProps {
   parentGoal: FinanceGoal;
   subgoals: Goal[];
+  onSubgoalClick?: (subgoalId: string) => void;
   className?: string;
 }
 
@@ -16,6 +17,7 @@ interface NestedProgressBarProps {
 export const NestedProgressBar: React.FC<NestedProgressBarProps> = ({
   parentGoal,
   subgoals,
+  onSubgoalClick,
   className,
 }) => {
   const mainProgress = Math.min((parentGoal.currentBalance / parentGoal.targetBalance) * 100, 100);
@@ -100,12 +102,13 @@ export const NestedProgressBar: React.FC<NestedProgressBarProps> = ({
             const isComplete = subProgress >= 100;
 
             return (
-              <motion.div
+              <motion.button
                 key={subgoal.id}
+                onClick={() => onSubgoalClick?.(subgoal.id)}
                 initial={{ opacity: 0, x: -10 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: index * 0.1 }}
-                className="space-y-1"
+                className="w-full space-y-1 text-left hover:bg-muted/10 p-2 -ml-2 rounded-lg transition-colors"
               >
                 <div className="flex items-center justify-between text-xs">
                   <span className={cn(
@@ -140,7 +143,7 @@ export const NestedProgressBar: React.FC<NestedProgressBarProps> = ({
                     }}
                   />
                 </div>
-              </motion.div>
+              </motion.button>
             );
           })}
         </div>

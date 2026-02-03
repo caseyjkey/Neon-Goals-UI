@@ -28,6 +28,8 @@ interface AppState {
   // View state
   viewMode: ViewMode;
   currentGoalId: string | null;
+  goalNavigationStack: string[]; // Stack of parent goal IDs for drill-down navigation
+  navigationDirection: 'forward' | 'back' | null; // Track animation direction
   sidebarOpen: boolean;
   activeCategory: GoalCategory;
   isChatMinimized: boolean;
@@ -51,6 +53,9 @@ interface AppState {
   // View actions
   setViewMode: (mode: ViewMode) => void;
   selectGoal: (id: string | null) => void;
+  drillIntoGoal: (id: string) => void; // Navigate into a subgoal (pushes current to stack)
+  navigateBack: () => void; // Go back one level in navigation stack
+  navigateToGoal: (id: string | null) => void; // Direct navigation (clears stack)
   closeGoal: () => void;
   toggleSidebar: () => void;
   setSidebarOpen: (open: boolean) => void;
@@ -118,6 +123,8 @@ export const useAppStore = create<AppState>()(
       // Initial state
       viewMode: 'card',
       currentGoalId: null,
+      goalNavigationStack: [], // Stack of parent goal IDs for drill-down
+      navigationDirection: null, // Track animation direction
       sidebarOpen: false, // Start closed; desktop opens via useEffect in Index.tsx
       activeCategory: 'all',
       isChatMinimized: false,
@@ -149,7 +156,64 @@ export const useAppStore = create<AppState>()(
 
       selectGoal: (id) => set({ currentGoalId: id }),
 
-      closeGoal: () => set({ currentGoalId: null }),
+      // Drill into a subgoal - push current goal to stack
+      drillIntoGoal: (id) => set((state) => {
+        const newStack = state.currentGoalId 
+          ? [...state.goalNavigationStack, state.currentGoalId]
+          : state.goalNavigationStack;
+        return {
+          currentGoalId: id,
+          goalNavigationStack: newStack,
+          navigationDirection: 'forward' as const,
+        };
+      }),
+
+      // Navigate back one level
+      navigateBack: () => set((state) => {
+        const newStack = [...state.goalNavigationStack];
+        const previousGoalId = newStack.pop() || null;
+        return {
+          currentGoalId: previousGoalId,
+          goalNavigationStack: newStack,
+          navigationDirection: 'back' as const,
+        };
+      }),
+
+      // Direct navigation - clears stack (e.g., from breadcrumb)
+      navigateToGoal: (id) => set((state) => {
+        if (id === null) {
+          // Navigate to root - clear everything
+          return {
+            currentGoalId: null,
+            goalNavigationStack: [],
+            navigationDirection: 'back' as const,
+          };
+        }
+        
+        // Find position in stack - keep everything up to that point
+        const stackIndex = state.goalNavigationStack.indexOf(id);
+        if (stackIndex !== -1) {
+          // Navigating to a parent in the stack
+          return {
+            currentGoalId: id,
+            goalNavigationStack: state.goalNavigationStack.slice(0, stackIndex),
+            navigationDirection: 'back' as const,
+          };
+        }
+        
+        // Not in stack - direct navigation (new context)
+        return {
+          currentGoalId: id,
+          goalNavigationStack: [],
+          navigationDirection: null,
+        };
+      }),
+
+      closeGoal: () => set({ 
+        currentGoalId: null, 
+        goalNavigationStack: [],
+        navigationDirection: 'back' as const,
+      }),
 
       toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
 

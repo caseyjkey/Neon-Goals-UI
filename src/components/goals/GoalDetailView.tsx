@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, ExternalLink, TrendingUp, CheckCircle2, Circle, Plus, Layers, Scan, ChevronRight, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -11,6 +11,7 @@ import { ObjectiveList } from './ObjectiveList';
 import { CompletionBurst } from './CompletionBurst';
 import { NestedProgressBar } from './NestedProgressBar';
 import { ComponentMatrix } from './ComponentMatrix';
+import { GoalBreadcrumb } from './GoalBreadcrumb';
 import { getProgressBreakdown, isFullyComplete } from '@/lib/progressCalculator';
 import type { Goal, ItemGoal, FinanceGoal, ActionGoal, ProductCandidate } from '@/types/goals';
 
@@ -18,6 +19,18 @@ interface GoalDetailViewProps {
   goal: Goal;
   onClose: () => void;
 }
+
+// Recursively find a goal by ID in the goals array (including nested subgoals)
+const findGoalById = (goals: Goal[], id: string): Goal | null => {
+  for (const goal of goals) {
+    if (goal.id === id) return goal;
+    if (goal.subgoals && goal.subgoals.length > 0) {
+      const found = findGoalById(goal.subgoals, id);
+      if (found) return found;
+    }
+  }
+  return null;
+};
 
 // Spring animation config for bouncy effect
 const springConfig = {
@@ -63,16 +76,42 @@ const itemVariants = {
 
 export const GoalDetailView: React.FC<GoalDetailViewProps> = ({ goal, onClose }) => {
   const [isDesktop, setIsDesktop] = useState(false);
-  const { isChatMinimized, updateGoal } = useAppStore();
+  const { 
+    isChatMinimized, 
+    updateGoal, 
+    goalNavigationStack, 
+    navigationDirection,
+    navigateToGoal,
+    navigateBack,
+    goals,
+  } = useAppStore();
 
   const onCloseRef = useRef(onClose);
   useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
 
-  // Close handler that closes scanner first if open
+  // Build navigation stack as Goal objects for breadcrumb (search recursively)
+  const navigationStackGoals = useMemo(() => {
+    return goalNavigationStack
+      .map(id => findGoalById(goals, id))
+      .filter((g): g is Goal => g !== null);
+  }, [goalNavigationStack, goals]);
+
+  // Handle breadcrumb navigation
+  const handleBreadcrumbNavigate = (goalId: string | null) => {
+    if (goalId === null) {
+      onCloseRef.current(); // Navigate to root (close goal view)
+    } else {
+      navigateToGoal(goalId);
+    }
+  };
+
+  // Close handler that closes scanner first if open, or navigates back if in stack
   const handleClose = () => {
     const scannerOpen = document.querySelector('[data-scanner-open="true"]');
     if (scannerOpen) {
       window.dispatchEvent(new CustomEvent('close-scanner'));
+    } else if (goalNavigationStack.length > 0) {
+      navigateBack();
     } else {
       onCloseRef.current();
     }
@@ -87,6 +126,8 @@ export const GoalDetailView: React.FC<GoalDetailViewProps> = ({ goal, onClose })
         const scannerOpen = document.querySelector('[data-scanner-open="true"]');
         if (scannerOpen) {
           window.dispatchEvent(new CustomEvent('close-scanner'));
+        } else if (goalNavigationStack.length > 0) {
+          navigateBack();
         } else {
           onCloseRef.current();
         }
@@ -98,7 +139,8 @@ export const GoalDetailView: React.FC<GoalDetailViewProps> = ({ goal, onClose })
       console.log('[GoalDetailView] Removing ESC handler');
       window.removeEventListener('keydown', handleEsc);
     };
-  }, []);
+  }, [goalNavigationStack.length, navigateBack]);
+  
   // Track desktop breakpoint for sidebar handle margin
   useEffect(() => {
     const checkDesktop = () => setIsDesktop(window.innerWidth >= 1024);
@@ -106,6 +148,22 @@ export const GoalDetailView: React.FC<GoalDetailViewProps> = ({ goal, onClose })
     window.addEventListener('resize', checkDesktop);
     return () => window.removeEventListener('resize', checkDesktop);
   }, []);
+
+  // Animation variants based on navigation direction
+  const slideVariants = {
+    initial: (direction: 'forward' | 'back' | null) => ({
+      opacity: 0,
+      x: direction === 'forward' ? 100 : direction === 'back' ? -100 : 0,
+    }),
+    animate: {
+      opacity: 1,
+      x: 0,
+    },
+    exit: (direction: 'forward' | 'back' | null) => ({
+      opacity: 0,
+      x: direction === 'forward' ? -100 : direction === 'back' ? 100 : 0,
+    }),
+  };
 
   return (
     <motion.div
@@ -117,6 +175,22 @@ export const GoalDetailView: React.FC<GoalDetailViewProps> = ({ goal, onClose })
       }}
       className="fixed inset-0 z-40 bg-background/95 backdrop-blur-md overflow-hidden"
     >
+      {/* Breadcrumb Navigation */}
+      <div 
+        className="absolute top-0 z-30"
+        style={{ 
+          left: isDesktop ? SIDEBAR_HANDLE_WIDTH : 0,
+          right: isChatMinimized ? 0 : undefined,
+          width: isChatMinimized ? undefined : isDesktop ? 'calc(100% - 48px - 416px)' : '100%',
+        }}
+      >
+        <GoalBreadcrumb
+          navigationStack={navigationStackGoals}
+          currentGoal={goal}
+          onNavigate={handleBreadcrumbNavigate}
+        />
+      </div>
+
       {/* Close Button */}
       <motion.button
         initial={{ opacity: 0, scale: 0.8 }}
@@ -124,42 +198,42 @@ export const GoalDetailView: React.FC<GoalDetailViewProps> = ({ goal, onClose })
         exit={{ opacity: 0, scale: 0.8 }}
         transition={{ ...springConfig, delay: 0.2 }}
         onClick={handleClose}
-        className="absolute top-4 right-4 z-10 p-3 rounded-xl glass-card neon-border text-foreground hover:neon-glow-cyan transition-all"
+        className="absolute top-14 right-4 z-10 p-3 rounded-xl glass-card neon-border text-foreground hover:neon-glow-cyan transition-all"
         aria-label="Close"
       >
         <X className="w-5 h-5" />
       </motion.button>
 
       {/* Goal Details Content - respects sidebar handle on desktop */}
-      <motion.div
-        initial={{ opacity: 0, x: -40 }}
-        animate={{
-          opacity: 1,
-          x: 0,
-          left: isDesktop ? SIDEBAR_HANDLE_WIDTH : 0,
-        }}
-        exit={{
-          opacity: 0,
-          x: -40,
-          left: 0,
-        }}
-        transition={springConfig}
-        className={cn(
-          "absolute top-16 bottom-0 overflow-y-auto p-6 lg:p-8 scrollbar-neon",
-          isChatMinimized ? "right-0" : "lg:right-[416px]"
-        )}
-      >
+      <AnimatePresence mode="wait" custom={navigationDirection}>
         <motion.div
-          variants={containerVariants}
-          initial="hidden"
-          animate="visible"
+          key={goal.id}
+          custom={navigationDirection}
+          variants={slideVariants}
+          initial="initial"
+          animate="animate"
           exit="exit"
+          transition={springConfig}
+          style={{
+            left: isDesktop ? SIDEBAR_HANDLE_WIDTH : 0,
+          }}
+          className={cn(
+            "absolute top-20 bottom-0 overflow-y-auto p-6 lg:p-8 scrollbar-neon",
+            isChatMinimized ? "right-0" : "lg:right-[416px]"
+          )}
         >
-          {goal.type === 'item' && <ItemGoalDetail goal={goal as ItemGoal} />}
-          {goal.type === 'finance' && <FinanceGoalDetail goal={goal as FinanceGoal} />}
-          {goal.type === 'action' && <ActionGoalDetail goal={goal as ActionGoal} />}
+          <motion.div
+            variants={containerVariants}
+            initial="hidden"
+            animate="visible"
+            exit="exit"
+          >
+            {goal.type === 'item' && <ItemGoalDetail goal={goal as ItemGoal} />}
+            {goal.type === 'finance' && <FinanceGoalDetail goal={goal as FinanceGoal} />}
+            {goal.type === 'action' && <ActionGoalDetail goal={goal as ActionGoal} />}
+          </motion.div>
         </motion.div>
-      </motion.div>
+      </AnimatePresence>
 
     </motion.div>
   );
@@ -537,14 +611,8 @@ const ItemGoalDetail: React.FC<{ goal: ItemGoal }> = ({ goal }) => {
               parentGoal={goal}
               subgoals={goal.subgoals}
               onSubgoalClick={(subgoalId) => {
-                // Find the subgoal and open scanner if it's an item goal with candidates
-                const subgoal = goal.subgoals?.find(s => s.id === subgoalId) as ItemGoal | undefined;
-                if (subgoal && subgoal.type === 'item' && subgoal.candidates && subgoal.candidates.length > 0) {
-                  // Could open scanner mode here - for now, navigate to the subgoal
-                  useAppStore.getState().selectGoal(subgoalId);
-                } else {
-                  useAppStore.getState().selectGoal(subgoalId);
-                }
+                // Drill into the subgoal with slide animation
+                useAppStore.getState().drillIntoGoal(subgoalId);
               }}
             />
           </motion.div>
@@ -556,7 +624,7 @@ const ItemGoalDetail: React.FC<{ goal: ItemGoal }> = ({ goal }) => {
 
 // Finance Goal Detail with Nested Progress Bars
 const FinanceGoalDetail: React.FC<{ goal: FinanceGoal }> = ({ goal }) => {
-  const { selectGoal } = useAppStore();
+  const { drillIntoGoal } = useAppStore();
   const progress = Math.min((goal.currentBalance / goal.targetBalance) * 100, 100);
   const remaining = goal.targetBalance - goal.currentBalance;
   const isComplete = progress >= 100;
@@ -575,9 +643,9 @@ const FinanceGoalDetail: React.FC<{ goal: FinanceGoal }> = ({ goal }) => {
     ? Math.ceil(remaining / avgSavingsPerWeek)
     : null;
 
-  // Navigate to subgoal detail
+  // Navigate to subgoal detail with drill-down animation
   const handleSubgoalClick = (subgoalId: string) => {
-    selectGoal(subgoalId);
+    drillIntoGoal(subgoalId);
   };
 
   return (
@@ -625,6 +693,7 @@ const FinanceGoalDetail: React.FC<{ goal: FinanceGoal }> = ({ goal }) => {
             <NestedProgressBar
               parentGoal={goal}
               subgoals={subgoals}
+              onSubgoalClick={handleSubgoalClick}
             />
           </div>
         </CompletionBurst>
@@ -744,7 +813,7 @@ const FinanceGoalDetail: React.FC<{ goal: FinanceGoal }> = ({ goal }) => {
 
 // Action Goal Detail with Modular Assembly System
 const ActionGoalDetail: React.FC<{ goal: ActionGoal }> = ({ goal }) => {
-  const { toggleTask, addTask, selectGoal } = useAppStore();
+  const { toggleTask, addTask, drillIntoGoal } = useAppStore();
   const [newTask, setNewTask] = React.useState('');
 
   // Calculate progress using Modular Assembly logic
@@ -762,7 +831,7 @@ const ActionGoalDetail: React.FC<{ goal: ActionGoal }> = ({ goal }) => {
 
   // Navigate to subgoal detail with drill-down animation
   const handleSubgoalClick = (subgoalId: string) => {
-    selectGoal(subgoalId);
+    drillIntoGoal(subgoalId);
   };
 
   return (
@@ -935,6 +1004,8 @@ const ActionGoalDetail: React.FC<{ goal: ActionGoal }> = ({ goal }) => {
 
 // Subgoals Section - shared across all goal types
 const SubgoalsSection: React.FC<{ goal: Goal }> = ({ goal }) => {
+  const { drillIntoGoal } = useAppStore();
+  
   if (!goal.subgoals || goal.subgoals.length === 0) {
     return null;
   }
@@ -950,15 +1021,15 @@ const SubgoalsSection: React.FC<{ goal: Goal }> = ({ goal }) => {
 
       <div className="space-y-3">
         {goal.subgoals.map((subgoal, index) => (
-          <motion.div
+          <motion.button
             key={subgoal.id}
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: index * 0.05 }}
-            className="flex items-center gap-3 p-4 rounded-xl bg-muted/30 border border-border/50 hover:border-primary/30 transition-all cursor-pointer"
-            onClick={() => window.location.href = `/goals/${subgoal.id}`}
+            className="w-full flex items-center gap-3 p-4 rounded-xl bg-muted/30 border border-[hsl(var(--neon-magenta)/0.3)] hover:border-[hsl(var(--neon-magenta)/0.6)] hover:shadow-[0_0_15px_hsl(var(--neon-magenta)/0.2)] transition-all cursor-pointer text-left"
+            onClick={() => drillIntoGoal(subgoal.id)}
           >
-            <div className="w-2 h-2 rounded-full bg-primary/60" />
+            <div className="w-1 h-8 rounded-full bg-[var(--neon-magenta)]" />
             <div className="flex-1 min-w-0">
               <span className="text-sm font-medium text-foreground">{subgoal.title}</span>
               <p className="text-xs text-muted-foreground truncate">{subgoal.description}</p>
@@ -971,7 +1042,8 @@ const SubgoalsSection: React.FC<{ goal: Goal }> = ({ goal }) => {
             )}>
               {subgoal.type}
             </span>
-          </motion.div>
+            <ChevronRight className="w-4 h-4 text-muted-foreground" />
+          </motion.button>
         ))}
       </div>
     </motion.div>
