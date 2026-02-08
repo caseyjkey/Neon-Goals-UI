@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 
 interface ScannerPlaceholderProps {
-  status: 'initiating' | 'decoding' | 'acquired' | 'no_candidates';
+  status: 'initiating' | 'decoding' | 'acquired' | 'no_candidates' | 'no_results';
   signalCount?: number;
   className?: string;
 }
@@ -21,7 +21,7 @@ export const ScannerPlaceholder: React.FC<ScannerPlaceholderProps> = ({
 
     const interval = setInterval(() => {
       setNoiseFrame(prev => (prev + 1) % 100);
-    }, 50);
+    }, status === 'no_results' ? 80 : 50);
 
     return () => clearInterval(interval);
   }, [status]);
@@ -36,6 +36,8 @@ export const ScannerPlaceholder: React.FC<ScannerPlaceholderProps> = ({
         return 'TARGET ACQUIRED';
       case 'no_candidates':
         return 'NO NEW CANDIDATES';
+      case 'no_results':
+        return 'NO SIGNAL';
       default:
         return 'SCANNING...';
     }
@@ -50,60 +52,91 @@ export const ScannerPlaceholder: React.FC<ScannerPlaceholderProps> = ({
 
   return (
     <div className={cn("relative w-full h-full overflow-hidden bg-background", className)}>
-      {/* Static Noise Background */}
-      {status !== 'acquired' && status !== 'no_candidates' && (
+      {/* TV Static / Noise Background */}
+      {(status !== 'acquired' && status !== 'no_candidates') && (
         <div className="absolute inset-0 z-10">
           {/* Base noise layer */}
           <div
-            className="absolute inset-0 opacity-20"
+            className="absolute inset-0"
             style={{
+              opacity: status === 'no_results' ? 0.5 : 0.2,
               backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='${0.8 + (noiseFrame % 10) * 0.02}' numOctaves='4' /%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.5'/%3E%3C/svg%3E")`,
               backgroundSize: 'cover',
             }}
           />
 
+          {/* Heavy static for no_results */}
+          {status === 'no_results' && (
+            <>
+              {/* Dense horizontal noise bars */}
+              {Array.from({ length: 12 }).map((_, i) => (
+                <div
+                  key={i}
+                  className="absolute left-0 right-0"
+                  style={{
+                    top: `${((noiseFrame * (i + 3) * 7) % 100)}%`,
+                    height: `${2 + (i % 3)}px`,
+                    background: `linear-gradient(90deg, transparent ${(noiseFrame * i) % 20}%, hsl(var(--muted-foreground) / ${0.15 + (i % 4) * 0.05}) ${20 + (noiseFrame * i) % 30}%, transparent ${60 + (noiseFrame * i) % 40}%)`,
+                  }}
+                />
+              ))}
+              {/* Flickering overlay */}
+              <motion.div
+                className="absolute inset-0 bg-foreground/5"
+                animate={{ opacity: [0, 0.08, 0, 0.05, 0] }}
+                transition={{ duration: 0.3, repeat: Infinity, repeatType: 'loop' }}
+              />
+            </>
+          )}
+
           {/* Magenta glitch streaks */}
-          <motion.div
-            className="absolute inset-0"
-            animate={{
-              opacity: [0.3, 0.6, 0.3],
-              x: [-2, 2, -2],
-            }}
-            transition={{
-              duration: 0.15,
-              repeat: Infinity,
-              repeatType: 'mirror',
-            }}
-          >
-            <div className="absolute top-0 left-0 right-0 h-[2px] bg-magenta/60" style={{ top: `${(noiseFrame * 3) % 100}%` }} />
-            <div className="absolute top-0 left-0 right-0 h-[1px] bg-magenta/80" style={{ top: `${(noiseFrame * 7) % 100}%` }} />
-            <div className="absolute top-0 left-0 right-0 h-[3px] bg-magenta/40" style={{ top: `${(noiseFrame * 11) % 100}%` }} />
-          </motion.div>
+          {status !== 'no_results' && (
+            <motion.div
+              className="absolute inset-0"
+              animate={{
+                opacity: [0.3, 0.6, 0.3],
+                x: [-2, 2, -2],
+              }}
+              transition={{
+                duration: 0.15,
+                repeat: Infinity,
+                repeatType: 'mirror',
+              }}
+            >
+              <div className="absolute top-0 left-0 right-0 h-[2px] bg-magenta/60" style={{ top: `${(noiseFrame * 3) % 100}%` }} />
+              <div className="absolute top-0 left-0 right-0 h-[1px] bg-magenta/80" style={{ top: `${(noiseFrame * 7) % 100}%` }} />
+              <div className="absolute top-0 left-0 right-0 h-[3px] bg-magenta/40" style={{ top: `${(noiseFrame * 11) % 100}%` }} />
+            </motion.div>
+          )}
 
           {/* Cyan glitch streaks */}
-          <motion.div
-            className="absolute inset-0"
-            animate={{
-              opacity: [0.4, 0.7, 0.4],
-              x: [2, -2, 2],
-            }}
-            transition={{
-              duration: 0.12,
-              repeat: Infinity,
-              repeatType: 'mirror',
-              delay: 0.05,
-            }}
-          >
-            <div className="absolute top-0 left-0 right-0 h-[2px] bg-primary/60" style={{ top: `${(noiseFrame * 5) % 100}%` }} />
-            <div className="absolute top-0 left-0 right-0 h-[1px] bg-primary/80" style={{ top: `${(noiseFrame * 13) % 100}%` }} />
-            <div className="absolute top-0 left-0 right-0 h-[2px] bg-primary/50" style={{ top: `${(noiseFrame * 17) % 100}%` }} />
-          </motion.div>
+          {status !== 'no_results' && (
+            <motion.div
+              className="absolute inset-0"
+              animate={{
+                opacity: [0.4, 0.7, 0.4],
+                x: [2, -2, 2],
+              }}
+              transition={{
+                duration: 0.12,
+                repeat: Infinity,
+                repeatType: 'mirror',
+                delay: 0.05,
+              }}
+            >
+              <div className="absolute top-0 left-0 right-0 h-[2px] bg-primary/60" style={{ top: `${(noiseFrame * 5) % 100}%` }} />
+              <div className="absolute top-0 left-0 right-0 h-[1px] bg-primary/80" style={{ top: `${(noiseFrame * 13) % 100}%` }} />
+              <div className="absolute top-0 left-0 right-0 h-[2px] bg-primary/50" style={{ top: `${(noiseFrame * 17) % 100}%` }} />
+            </motion.div>
+          )}
 
           {/* Scanline overlay */}
           <div
             className="absolute inset-0 pointer-events-none"
             style={{
-              backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0, 240, 255, 0.03) 2px, rgba(0, 240, 255, 0.03) 4px)',
+              backgroundImage: status === 'no_results'
+                ? 'repeating-linear-gradient(0deg, transparent, transparent 1px, rgba(255, 255, 255, 0.02) 1px, rgba(255, 255, 255, 0.02) 2px)'
+                : 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0, 240, 255, 0.03) 2px, rgba(0, 240, 255, 0.03) 4px)',
             }}
           />
         </div>
@@ -127,10 +160,14 @@ export const ScannerPlaceholder: React.FC<ScannerPlaceholderProps> = ({
         {/* Main message */}
         <motion.div
           animate={{
-            opacity: status === 'acquired' || status === 'no_candidates' ? [0.8, 1, 0.8] : [0.7, 1, 0.7],
+            opacity: status === 'no_results'
+              ? [0.4, 0.8, 0.3, 0.7, 0.4]
+              : status === 'acquired' || status === 'no_candidates'
+              ? [0.8, 1, 0.8]
+              : [0.7, 1, 0.7],
           }}
           transition={{
-            duration: status === 'acquired' || status === 'no_candidates' ? 1.5 : 0.8,
+            duration: status === 'no_results' ? 0.5 : status === 'acquired' || status === 'no_candidates' ? 1.5 : 0.8,
             repeat: Infinity,
             repeatType: 'mirror',
           }}
@@ -138,6 +175,8 @@ export const ScannerPlaceholder: React.FC<ScannerPlaceholderProps> = ({
             "px-6 py-3 rounded-xl font-mono font-bold text-lg tracking-wider",
             status === 'acquired'
               ? "bg-primary/30 text-primary border-2 border-primary neon-glow-cyan"
+              : status === 'no_results'
+              ? "bg-muted/60 text-muted-foreground/70 border border-muted-foreground/20"
               : status === 'no_candidates'
               ? "bg-muted/50 text-muted-foreground border border-muted"
               : "bg-background/80 text-foreground border border-border/50"
@@ -147,7 +186,7 @@ export const ScannerPlaceholder: React.FC<ScannerPlaceholderProps> = ({
         </motion.div>
 
         {/* Progress indicator dots (initiating and decoding) */}
-        {status !== 'acquired' && status !== 'no_candidates' && (
+        {status !== 'acquired' && status !== 'no_candidates' && status !== 'no_results' && (
           <div className="flex gap-2">
             {[0, 1, 2].map((i) => (
               <motion.div

@@ -61,7 +61,7 @@ export const ActionGoalCard: React.FC<ActionGoalCardProps> = ({
       exit={{ opacity: 0, scale: 0.95 }}
       transition={{
         ...springConfig,
-        delay: shouldAnimate ? animationIndex * 0.08 : 0,
+        delay: shouldAnimate ? animationIndex * 0.03 : 0,
       }}
       className="relative"
     >
@@ -76,7 +76,7 @@ export const ActionGoalCard: React.FC<ActionGoalCardProps> = ({
         onClick={() => !isExpanded && onViewDetail(goal.id)}
       >
         {/* Header */}
-        <div className="flex items-start justify-between mb-4">
+        <div className="flex items-start gap-3 mb-4 pr-12">
           <div className="flex-1">
             <h3 className="font-heading font-semibold text-foreground text-lg mb-1">
               {goal.title}
@@ -85,18 +85,17 @@ export const ActionGoalCard: React.FC<ActionGoalCardProps> = ({
               {goal.description}
             </p>
           </div>
+        </div>
 
-          {/* Top Right Actions */}
-          <div className="flex gap-2">
-            {/* Delete Button */}
-            <button
-              onClick={(e) => { e.stopPropagation(); onDelete(goal.id); }}
-              className="p-3 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity bg-muted/50 text-muted-foreground hover:text-destructive hover:bg-muted min-w-[44px] min-h-[44px] flex items-center justify-center"
-              aria-label="Delete"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
-          </div>
+        {/* Top Right Actions - absolute positioned */}
+        <div className="absolute top-5 right-5 z-20 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <button
+            onClick={(e) => { e.stopPropagation(); onDelete(goal.id); }}
+            className="p-3 rounded-lg bg-background/80 backdrop-blur-sm text-muted-foreground hover:text-destructive transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+            aria-label="Delete"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
         </div>
 
       {/* Progress Circle */}

@@ -26,8 +26,8 @@ import { browserUseService } from '@/services/browserUseService';
 
 // Chat command types from backend
 export interface ChatCommand {
-  type: 'ADD_TASK' | 'TOGGLE_TASK' | 'UPDATE_TITLE' | 'UPDATE_SEARCHTERM' | 'REFRESH_CANDIDATES' | 'ARCHIVE_GOAL';
-  goalId: string;
+  type: 'ADD_TASK' | 'TOGGLE_TASK' | 'UPDATE_TITLE' | 'UPDATE_SEARCHTERM' | 'REFRESH_CANDIDATES' | 'ARCHIVE_GOAL' | 'CREATE_GOAL' | 'CREATE_SUBGOAL' | 'UPDATE_PROGRESS' | 'UPDATE_FILTERS';
+  goalId?: string;
   data: any;
 }
 
@@ -391,7 +391,7 @@ export const useAppStore = create<AppState>()(
               timestamp: new Date(),
               goalPreview: response.goalPreview,
               awaitingConfirmation: response.awaitingConfirmation,
-              proposalType: response.proposalType,
+              proposalType: (response as any).proposalType,
             };
 
             set((state) => ({
@@ -597,7 +597,7 @@ export const useAppStore = create<AppState>()(
                 set({
                   pendingCommands: {
                     chatId: 'creation',
-                    commands: chatResponse.commands,
+                    commands: chatResponse.commands as unknown as ChatCommand[],
                     timestamp: Date.now(),
                   },
                 });
@@ -658,9 +658,9 @@ export const useAppStore = create<AppState>()(
             role: 'assistant',
             content: response.content,
             timestamp: new Date(),
-            goalPreview: response.goalPreview,
-            awaitingConfirmation: response.awaitingConfirmation,
-            proposalType: response.proposalType,
+            goalPreview: (response as any).goalPreview,
+            awaitingConfirmation: (response as any).awaitingConfirmation,
+            proposalType: (response as any).proposalType,
           };
 
           set((state) => ({
@@ -674,7 +674,7 @@ export const useAppStore = create<AppState>()(
           }));
 
           // Track latest proposal
-          if (response.awaitingConfirmation) {
+          if ((response as any).awaitingConfirmation) {
             get().setLatestProposal(`goal-${goalId}`, assistantMessage.id);
           }
 
@@ -978,7 +978,7 @@ export const useAppStore = create<AppState>()(
           if (!isDemo) {
             // Production mode: call the appropriate confirm endpoint
             if (chatId === 'overview' || chatId === 'creation') {
-              await aiOverviewChatService.confirmCommands(commands);
+              await aiOverviewChatService.confirmCommands(commands as any);
             } else if (chatId === 'items' || chatId === 'finances' || chatId === 'actions') {
               await aiSpecialistChatService.confirmCommands(chatId, commands);
             }
@@ -1261,9 +1261,9 @@ export const useAppStore = create<AppState>()(
                     ? {
                         ...msg,
                         content: response.content,
-                        goalPreview: response.goalPreview,
-                        awaitingConfirmation: response.awaitingConfirmation,
-                        proposalType: response.proposalType,
+                        goalPreview: (response as any).goalPreview,
+                        awaitingConfirmation: (response as any).awaitingConfirmation,
+                        proposalType: (response as any).proposalType,
                       }
                     : msg
                 ),
@@ -1313,9 +1313,9 @@ export const useAppStore = create<AppState>()(
                         ...msg,
                         content: fullContent,
                         ...(chunk.done && {
-                          goalPreview: chunk.goalPreview,
-                          awaitingConfirmation: chunk.awaitingConfirmation,
-                          proposalType: chunk.proposalType,
+                          goalPreview: (chunk as any).goalPreview,
+                          awaitingConfirmation: (chunk as any).awaitingConfirmation,
+                          proposalType: (chunk as any).proposalType,
                         }),
                       }
                     : msg
@@ -1544,9 +1544,9 @@ export const useAppStore = create<AppState>()(
                       ? {
                           ...msg,
                           content: response.content,
-                          goalPreview: response.goalPreview,
-                          awaitingConfirmation: response.awaitingConfirmation,
-                          proposalType: response.proposalType,
+                          goalPreview: (response as any).goalPreview,
+                          awaitingConfirmation: (response as any).awaitingConfirmation,
+                          proposalType: (response as any).proposalType,
                         }
                       : msg
                   ),
@@ -1600,7 +1600,10 @@ export const useAppStore = create<AppState>()(
                 // Skip malformed SSE lines
               }
             }
+          }
 
+          // Final update with metadata from finalChunk
+          if (finalChunk.done) {
             set((state) => ({
               categoryChats: {
                 ...state.categoryChats,
@@ -1611,15 +1614,13 @@ export const useAppStore = create<AppState>()(
                       ? {
                           ...msg,
                           content: fullContent,
-                          ...(chunk.done && {
-                            goalPreview: chunk.goalPreview,
-                            awaitingConfirmation: chunk.awaitingConfirmation,
-                            proposalType: chunk.proposalType,
-                          }),
+                          goalPreview: (finalChunk as any).goalPreview,
+                          awaitingConfirmation: (finalChunk as any).awaitingConfirmation,
+                          proposalType: (finalChunk as any).proposalType,
                         }
                       : msg
                   ),
-                  ...(chunk.done && { isLoading: false }),
+                  isLoading: false,
                 },
               },
             }));

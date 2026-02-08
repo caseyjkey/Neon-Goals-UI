@@ -57,8 +57,10 @@ const getCommandDescription = (command: ChatCommand): string => {
       return `${command.data.completed ? 'Mark incomplete' : 'Mark complete'}: ${command.data.taskId}`;
     case 'UPDATE_TITLE':
       return `Change title to: "${command.data.title}"`;
-    case 'UPDATE_FILTERS':
-      return `Update filters: ${JSON.stringify(command.data.filters)}`;
+    case 'UPDATE_SEARCHTERM':
+      return `Update search term: "${command.data.searchTerm}"`;
+    case 'REFRESH_CANDIDATES':
+      return `Refresh candidates for goal`;
     case 'ARCHIVE_GOAL':
       return 'Archive this goal';
     default:
@@ -109,16 +111,16 @@ const renderCommandDetails = (command: ChatCommand, goals: any[]) => {
         </div>
       );
 
-    case 'UPDATE_FILTERS':
+    case 'UPDATE_SEARCHTERM':
       return (
         <div className="space-y-2">
           <p className="text-sm text-slate-300">
-            Update filters for <span className="text-white font-medium">{goal?.title || 'goal'}</span>:
+            Update search for <span className="text-white font-medium">{goal?.title || 'goal'}</span>:
           </p>
           <div className="bg-slate-800/50 rounded-lg p-3 border border-slate-700">
-            <pre className="text-sm text-slate-300">
-              {JSON.stringify(command.data.filters, null, 2)}
-            </pre>
+            <p className="text-sm text-slate-300">
+              {command.data.searchTerm}
+            </p>
           </div>
         </div>
       );
