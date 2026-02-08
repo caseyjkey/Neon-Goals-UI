@@ -16,6 +16,7 @@ const sectionConfig = {
     description: 'Connect your checking and savings accounts to track balances',
     gradient: 'from-primary/20 to-primary/5',
     borderColor: 'border-primary/30',
+    hoverBorder: 'hover:border-primary/60',
   },
   investments: {
     icon: TrendingUp,
@@ -23,6 +24,7 @@ const sectionConfig = {
     description: 'Link your brokerage, IRA, or retirement accounts',
     gradient: 'from-accent/20 to-accent/5',
     borderColor: 'border-accent/30',
+    hoverBorder: 'hover:border-accent/60',
   },
   credit: {
     icon: CreditCard,
@@ -30,6 +32,7 @@ const sectionConfig = {
     description: 'Track your credit cards and loan balances in one place',
     gradient: 'from-warning/20 to-warning/5',
     borderColor: 'border-warning/30',
+    hoverBorder: 'hover:border-warning/60',
   },
 };
 
@@ -41,19 +44,30 @@ export const AccountSectionEmpty: React.FC<AccountSectionEmptyProps> = ({
   const config = sectionConfig[sectionType];
   const Icon = config.icon;
 
+  const handleClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!isLoading) {
+      onAddAccount();
+    }
+  };
+
   return (
-    <motion.button
+    <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       whileHover={{ scale: 1.01 }}
       whileTap={{ scale: 0.99 }}
-      onClick={onAddAccount}
-      disabled={isLoading}
+      onClick={handleClick}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onAddAccount(); } }}
       className={cn(
-        "w-full p-4 rounded-xl border-2 border-dashed transition-all text-left group",
+        "w-full p-4 rounded-xl border-2 border-dashed transition-all text-left group cursor-pointer select-none",
         config.borderColor,
+        config.hoverBorder,
         "hover:bg-muted/20",
-        isLoading && "opacity-50 cursor-not-allowed"
+        isLoading && "opacity-50 pointer-events-none"
       )}
     >
       <div className="flex items-center gap-3">
@@ -75,6 +89,6 @@ export const AccountSectionEmpty: React.FC<AccountSectionEmptyProps> = ({
           <Plus className={cn("w-4 h-4", isLoading && "animate-pulse")} />
         </div>
       </div>
-    </motion.button>
+    </motion.div>
   );
 };

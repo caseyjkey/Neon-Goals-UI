@@ -381,11 +381,11 @@ export const ScrapeStatusCard: React.FC<ScrapeStatusCardProps> = ({ goal, onFilt
                   )}
 
                   {/* Search Filters (old format fallback) */}
-                  {!goal.retailerFilters && goal.searchFilters && Object.keys(goal.searchFilters).length > 0 && (
+                  {!goal.retailerFilters && goal.searchTerm && (
                     <div>
-                      <p className="text-xs text-muted-foreground mb-1">Search Filters</p>
+                      <p className="text-xs text-muted-foreground mb-1">Search Term</p>
                       <pre className="text-xs text-foreground overflow-x-auto bg-background/50 rounded p-2">
-                        {JSON.stringify(goal.searchFilters, null, 2)}
+                        {goal.searchTerm}
                       </pre>
                     </div>
                   )}

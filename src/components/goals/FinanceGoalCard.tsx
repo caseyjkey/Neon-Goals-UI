@@ -65,7 +65,7 @@ export const FinanceGoalCard: React.FC<FinanceGoalCardProps> = ({
       exit={{ opacity: 0, scale: 0.95 }}
       transition={{
         ...springConfig,
-        delay: shouldAnimate ? animationIndex * 0.08 : 0,
+        delay: shouldAnimate ? animationIndex * 0.03 : 0,
       }}
       className="relative"
     >
@@ -77,41 +77,36 @@ export const FinanceGoalCard: React.FC<FinanceGoalCardProps> = ({
         onClick={() => !isExpanded && onViewDetail(goal.id)}
       >
         {/* Header */}
-        <div className="flex items-start justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl bg-gradient-sunset flex items-center justify-center text-2xl">
-              {goal.institutionIcon}
-            </div>
-            <div>
-              <h3 className="font-heading font-semibold text-foreground">
-                {goal.title}
-              </h3>
-              <p className="text-sm text-muted-foreground">
-                {goal.accountName}
-              </p>
-            </div>
+        <div className="flex items-start gap-3 mb-4 pr-24">
+          <div className="w-12 h-12 rounded-xl bg-gradient-sunset flex items-center justify-center text-2xl">
+            {goal.institutionIcon}
           </div>
+          <div>
+            <h3 className="font-heading font-semibold text-foreground">
+              {goal.title}
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              {goal.accountName}
+            </p>
+          </div>
+        </div>
 
-          {/* Top Right Actions */}
-          <div className="flex gap-2">
-            {/* Quick Actions */}
-            <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-              <button
-                onClick={(e) => { e.stopPropagation(); onSync(goal.id); }}
-                className="p-3 rounded-lg bg-muted/50 text-muted-foreground hover:text-primary hover:bg-muted transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
-                aria-label="Sync"
-              >
-                <RefreshCw className="w-4 h-4" />
-              </button>
-              <button
-                onClick={(e) => { e.stopPropagation(); onDelete(goal.id); }}
-                className="p-3 rounded-lg bg-muted/50 text-muted-foreground hover:text-destructive hover:bg-muted transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
-                aria-label="Delete"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
+        {/* Top Right Actions - absolute positioned */}
+        <div className="absolute top-5 right-5 z-20 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <button
+            onClick={(e) => { e.stopPropagation(); onSync(goal.id); }}
+            className="p-3 rounded-lg bg-background/80 backdrop-blur-sm text-muted-foreground hover:text-primary transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+            aria-label="Sync"
+          >
+            <RefreshCw className="w-4 h-4" />
+          </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); onDelete(goal.id); }}
+            className="p-3 rounded-lg bg-background/80 backdrop-blur-sm text-muted-foreground hover:text-destructive transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
+            aria-label="Delete"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
         </div>
 
       {/* Balance */}
