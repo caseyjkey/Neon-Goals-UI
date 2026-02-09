@@ -1,11 +1,12 @@
+import { apiClient } from './apiClient';
 import { API_BASE_URL } from '@/lib/apiConfig';
 
 /**
  * Initiate GitHub OAuth flow by redirecting to backend
  */
 export const initiateGitHubLogin = () => {
-  // Redirect to backend GitHub OAuth endpoint
-  window.location.href = `${API_BASE_URL}/auth/github`;
+  // Redirect to backend GitHub OAuth endpoint with /api/ prefix
+  window.location.href = `${API_BASE_URL}/api/auth/github`;
 };
 
 /**
@@ -15,17 +16,8 @@ export const initiateGitHubLogin = () => {
 export const handleGitHubCallback = async (token: string) => {
   // Store the token
   localStorage.setItem('auth_token', token);
+  apiClient.setToken(token);
 
-  // Fetch user profile from backend
-  const response = await fetch(`${API_BASE_URL}/auth/me`, {
-    headers: {
-      'Authorization': `Bearer ${token}`,
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error('Failed to fetch user profile');
-  }
-
-  return await response.json();
+  // Fetch user profile from backend using apiClient
+  return apiClient.get('/auth/me', true);
 };

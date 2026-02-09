@@ -35,36 +35,6 @@ export interface OverviewStreamChunk {
   commands?: ChatCommand[];
 }
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-
-async function fetchWithAuth(url: string, options: RequestInit = {}) {
-  const token = localStorage.getItem('auth_token');
-
-  const headers = {
-    'Content-Type': 'application/json',
-    ...(token && { Authorization: `Bearer ${token}` }),
-    ...options.headers,
-  };
-
-  const response = await fetch(`${API_BASE}${url}`, {
-    ...options,
-    headers,
-  });
-
-  // Handle 401 Unauthorized - token expired
-  if (response.status === 401) {
-    // Clear token
-    localStorage.removeItem('auth_token');
-    // Redirect to login page
-    if (typeof window !== 'undefined') {
-      window.location.href = '/login';
-    }
-    throw new Error('Session expired. Please log in again.');
-  }
-
-  return response;
-}
-
 export const aiOverviewChatService = {
   /**
    * Send message to overview chat agent
@@ -77,20 +47,9 @@ export const aiOverviewChatService = {
    * Stream overview chat for real-time responses
    */
   async *chatStream(request: OverviewChatRequest): AsyncGenerator<OverviewStreamChunk, void, unknown> {
-    const response = await fetchWithAuth('/ai/overview/chat/stream', {
-      method: 'POST',
-      body: JSON.stringify(request),
-    });
+    const stream = await apiClient.postStream('/ai/overview/chat/stream', request);
 
-    if (!response.ok) {
-      throw new Error(`Overview chat error: ${response.status}`);
-    }
-
-    if (!response.body) {
-      throw new Error('No response body');
-    }
-
-    const reader = response.body.getReader();
+    const reader = stream.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
 

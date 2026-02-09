@@ -1,5 +1,4 @@
 import { apiClient } from './apiClient';
-import { API_BASE_URL as API_BASE } from '@/lib/apiConfig';
 
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant';
@@ -27,35 +26,6 @@ export interface StreamChunk {
   commands?: Array<{ type: string; data: any }>;
 }
 
-async function fetchWithAuth(url: string, options: RequestInit = {}) {
-  // Read token dynamically on each request
-  const token = localStorage.getItem('auth_token');
-
-  const headers = {
-    'Content-Type': 'application/json',
-    ...(token && { Authorization: `Bearer ${token}` }),
-    ...options.headers,
-  };
-
-  const response = await fetch(`${API_BASE}${url}`, {
-    ...options,
-    headers,
-  });
-
-  // Handle 401 Unauthorized - token expired
-  if (response.status === 401) {
-    // Clear token
-    localStorage.removeItem('auth_token');
-    // Redirect to login page
-    if (typeof window !== 'undefined') {
-      window.location.href = '/login';
-    }
-    throw new Error('Session expired. Please log in again.');
-  }
-
-  return response;
-}
-
 export const aiService = {
   /**
    * Send chat message to AI
@@ -68,20 +38,9 @@ export const aiService = {
    * Stream chat message to AI for real-time responses
    */
   async *chatStream(request: ChatRequest): AsyncGenerator<StreamChunk, void, unknown> {
-    const response = await fetchWithAuth('/ai/chat/stream', {
-      method: 'POST',
-      body: JSON.stringify(request),
-    });
+    const stream = await apiClient.postStream('/ai/chat/stream', request);
 
-    if (!response.ok) {
-      throw new Error(`AI service error: ${response.status}`);
-    }
-
-    if (!response.body) {
-      throw new Error('No response body');
-    }
-
-    const reader = response.body.getReader();
+    const reader = stream.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
 
