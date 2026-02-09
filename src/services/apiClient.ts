@@ -67,7 +67,12 @@ class ApiClient {
     options: RequestInit = {},
     includeAuth = true,
   ): Promise<T> {
-    const url = `${this.baseUrl}${endpoint}`;
+    // Prepend /api if not already present
+    const apiEndpoint = endpoint.startsWith('/api')
+      ? endpoint
+      : `/api${endpoint}`;
+
+    const url = `${this.baseUrl}${apiEndpoint}`;
 
     const config: RequestInit = {
       ...options,
@@ -141,7 +146,12 @@ class ApiClient {
    * Returns a readable stream that emits SSE data
    */
   async postStream(endpoint: string, data?: any, includeAuth = true): Promise<ReadableStream> {
-    const url = `${this.baseUrl}${endpoint}`;
+    // Prepend /api if not already present
+    const apiEndpoint = endpoint.startsWith('/api')
+      ? endpoint
+      : `/api${endpoint}`;
+
+    const url = `${this.baseUrl}${apiEndpoint}`;
 
     const response = await fetch(url, {
       method: 'POST',

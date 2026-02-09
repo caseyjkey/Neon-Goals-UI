@@ -1,5 +1,5 @@
 import { apiClient } from './apiClient';
-import { API_BASE_URL } from '@/lib/apiConfig';
+import { API_BASE_URL } from '@/lib/apiConfig'; // Still used for GitHub OAuth URL
 
 export interface LoginResponse {
   access_token: string;
@@ -14,8 +14,8 @@ export interface LoginResponse {
 
 export const authService = {
   async getGitHubAuthUrl() {
-    // Return backend GitHub OAuth URL
-    return `${API_BASE_URL}/auth/github`;
+    // Return backend GitHub OAuth URL with /api/ prefix
+    return `${API_BASE_URL}/api/auth/github`;
   },
 
   async login(token: string) {
@@ -23,35 +23,13 @@ export const authService = {
     localStorage.setItem('auth_token', token);
     apiClient.setToken(token);
 
-    // Fetch user profile from backend
-    const response = await fetch(`${API_BASE_URL}/auth/me`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
-
-    if (!response.ok) {
-      apiClient.clearToken();
-      throw new Error('Invalid token');
-    }
-
-    return await response.json();
+    // Fetch user profile from backend using apiClient
+    return apiClient.get<LoginResponse['user']>('/auth/me', true);
   },
 
   async demoLogin() {
-    // Call backend demo endpoint to get a valid JWT token
-    const response = await fetch(`${API_BASE_URL}/auth/demo`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error('Demo login failed');
-    }
-
-    const data = await response.json();
+    // Call backend demo endpoint to get a valid JWT token using apiClient
+    const data = await apiClient.post<LoginResponse>('/auth/demo', undefined, false);
 
     // Store token in localStorage
     localStorage.setItem('auth_token', data.access_token);
@@ -106,40 +84,18 @@ export const authService = {
     password: string,
     name: string
   ): Promise<{ message: string; userId: string; verificationToken?: string }> {
-    const response = await fetch(`${API_BASE_URL}/auth/register`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ email, password, name }),
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Registration failed');
-    }
-
-    return await response.json();
+    return apiClient.post<{ message: string; userId: string; verificationToken?: string }>(
+      '/auth/register',
+      { email, password, name },
+      false
+    );
   },
 
   /**
    * Verify email with token
    */
   async verifyEmail(token: string): Promise<LoginResponse> {
-    const response = await fetch(`${API_BASE_URL}/auth/verify-email`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ token }),
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Email verification failed');
-    }
-
-    const data = await response.json();
+    const data = await apiClient.post<LoginResponse>('/auth/verify-email', { token }, false);
 
     // Store token in localStorage
     localStorage.setItem('auth_token', data.access_token);
@@ -152,40 +108,18 @@ export const authService = {
    * Resend verification email
    */
   async resendVerification(email: string): Promise<{ message: string; verificationToken?: string }> {
-    const response = await fetch(`${API_BASE_URL}/auth/resend-verification`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ email }),
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Failed to resend verification email');
-    }
-
-    return await response.json();
+    return apiClient.post<{ message: string; verificationToken?: string }>(
+      '/auth/resend-verification',
+      { email },
+      false
+    );
   },
 
   /**
    * Login with email and password
    */
   async loginWithEmail(email: string, password: string): Promise<LoginResponse> {
-    const response = await fetch(`${API_BASE_URL}/auth/login`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ email, password }),
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Login failed');
-    }
-
-    const data = await response.json();
+    const data = await apiClient.post<LoginResponse>('/auth/login', { email, password }, false);
 
     // Store token in localStorage
     localStorage.setItem('auth_token', data.access_token);
@@ -198,39 +132,21 @@ export const authService = {
    * Initiate password reset
    */
   async forgotPassword(email: string): Promise<{ message: string; resetToken?: string }> {
-    const response = await fetch(`${API_BASE_URL}/auth/forgot-password`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ email }),
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Password reset request failed');
-    }
-
-    return await response.json();
+    return apiClient.post<{ message: string; resetToken?: string }>(
+      '/auth/forgot-password',
+      { email },
+      false
+    );
   },
 
   /**
    * Complete password reset
    */
   async resetPassword(token: string, newPassword: string): Promise<{ message: string }> {
-    const response = await fetch(`${API_BASE_URL}/auth/reset-password`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ token, newPassword }),
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Password reset failed');
-    }
-
-    return await response.json();
+    return apiClient.post<{ message: string }>(
+      '/auth/reset-password',
+      { token, newPassword },
+      false
+    );
   },
 };
