@@ -32,3 +32,5 @@ export const getApiUrl = (): string => {
 };
 
 export const API_BASE_URL = getApiUrl();
+// CACHE BUST 1770691342
+export const CACHE_BUST = 'v' + Date.now();
