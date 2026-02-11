@@ -5,13 +5,16 @@ export interface GoalChatRequest {
 }
 
 export interface ChatCommand {
-  type: 'CREATE_SUBGOAL' | 'UPDATE_PROGRESS';
+  type: 'CREATE_SUBGOAL' | 'UPDATE_PROGRESS' | 'UPDATE_SEARCHTERM' | 'REFRESH_CANDIDATES' | 'ARCHIVE_GOAL';
   data: any;
 }
 
 export interface GoalChatResponse {
   content: string;
   commands?: ChatCommand[];
+  goalPreview?: string;
+  awaitingConfirmation?: boolean;
+  proposalType?: 'confirm_edit_cancel' | 'accept_decline';
 }
 
 export const aiGoalChatService = {
@@ -21,5 +24,12 @@ export const aiGoalChatService = {
    */
   async chat(goalId: string, request: GoalChatRequest): Promise<GoalChatResponse> {
     return apiClient.post<GoalChatResponse>(`/ai/goal-chat/${goalId}`, request);
+  },
+
+  /**
+   * Confirm and execute pending commands for a goal chat
+   */
+  async confirmCommands(goalId: string, commands: ChatCommand[]): Promise<any> {
+    return apiClient.post(`/ai/goal-chat/${goalId}/confirm`, { commands });
   },
 };
