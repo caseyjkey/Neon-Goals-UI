@@ -101,16 +101,8 @@ export const ScrapeStatusCard: React.FC<ScrapeStatusCardProps> = ({ goal, onFilt
 
       setPreviousJobStatus(currentStatus);
 
-      // Check if we should continue polling - only if there are active (pending/running) jobs
-      const hasActiveJobs = jobsArray.some(
-        (job: ScrapeJob) => job.status === 'pending' || job.status === 'running'
-      );
-
-      // Stop polling if no active jobs exist, regardless of goal status
-      if (!hasActiveJobs && pollIntervalRef.current) {
-        clearInterval(pollIntervalRef.current);
-        pollIntervalRef.current = null;
-      }
+      // Don't stop polling based on hasActiveJobs - continue as long as statusBadge is pending_search
+      // The polling useEffect will handle stopping when statusBadge changes
     } catch (error) {
       console.error('[ScrapeStatusCard] Failed to fetch scrape jobs:', error);
       // Don't clear interval on error, keep trying
