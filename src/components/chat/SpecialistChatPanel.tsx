@@ -162,9 +162,9 @@ export const SpecialistChatPanel: React.FC<SpecialistChatPanelProps> = ({
                         code: ({ children, className }) => {
                           const isInline = !className;
                           return isInline ? (
-                            <code className="bg-slate-600/50 px-1 py-0.5 rounded text-sm">{children}</code>
+                            <code className="bg-slate-600/50 px-1 py-0.5 rounded text-sm text-slate-100">{children}</code>
                           ) : (
-                            <code className="block bg-slate-800/50 p-2 rounded text-sm overflow-x-auto">{children}</code>
+                            <code className="block bg-slate-800/50 p-2 rounded text-sm text-slate-100 overflow-x-auto">{children}</code>
                           );
                         },
                       }}
