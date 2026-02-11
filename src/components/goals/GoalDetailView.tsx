@@ -476,6 +476,8 @@ const ItemGoalDetail: React.FC<{ goal: ItemGoal }> = ({ goal }) => {
             status={
               !scrapeCompleted && (latestGoal.statusBadge === 'pending_search' || latestGoal.statusBadge === 'pending-search')
                 ? 'initiating'
+                : latestGoal.statusBadge === 'not_found'
+                ? 'no_results'
                 : scrapedWithNoResults
                 ? 'no_candidates'
                 : selectedCandidate
@@ -551,24 +553,27 @@ const ItemGoalDetail: React.FC<{ goal: ItemGoal }> = ({ goal }) => {
 
         {/* Price Card */}
         <motion.div variants={itemVariants} className="glass-card p-6 neon-border">
-          <div className="grid grid-cols-2 gap-4">
-            {/* Row 1, Col 1: Price */}
-            <div className="text-center">
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            {/* Price Section */}
+            <div className="flex flex-col">
               <p className="text-sm text-muted-foreground mb-1">Best Price</p>
               <p className="text-4xl font-heading font-bold neon-text-cyan">
                 ${displayPrice.toLocaleString()}
               </p>
             </div>
 
-            {/* Row 1, Col 2: Available at */}
+            {/* Available at Section */}
             <div className="flex flex-col justify-end text-center">
               <p className="text-sm text-muted-foreground">Available at</p>
               <p className="text-lg font-medium text-foreground">
                 {displayRetailer}
               </p>
             </div>
+          </div>
 
-            {/* Row 2, Col 1: Scan button */}
+          {/* Buttons Row */}
+          <div className="grid grid-cols-2 gap-4 mt-4">
+            {/* Scan button */}
             {hasCandidates && (
               <button
                 onClick={() => setIsScannerOpen(true)}
@@ -579,7 +584,7 @@ const ItemGoalDetail: React.FC<{ goal: ItemGoal }> = ({ goal }) => {
               </button>
             )}
 
-            {/* Row 2, Col 2: Buy button */}
+            {/* Buy button */}
             <a
               href={selectedCandidate?.url || latestGoal.retailerUrl}
               target="_blank"

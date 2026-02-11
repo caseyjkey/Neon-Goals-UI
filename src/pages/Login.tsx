@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Github, Chrome as ChromeIcon, ArrowLeft, Mail, Copy, Check } from 'lucide-react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Github, Chrome as ChromeIcon, Mail, Copy, Check } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useAppStore } from '@/store/useAppStore';
 import { initiateGitHubLogin } from '@/services/githubAuth';
 import { authService } from '@/services/authService';
@@ -105,15 +105,6 @@ const Login = () => {
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-primary/20 rounded-full blur-3xl animate-pulse-slow" />
         <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-accent/20 rounded-full blur-3xl animate-pulse-slow" style={{ animationDelay: '1s' }} />
       </div>
-
-      {/* Back Button */}
-      <Link
-        to="/"
-        className="fixed top-6 left-6 p-3 rounded-full glass-card hover:bg-muted/50 transition-colors z-10"
-        aria-label="Back to home"
-      >
-        <ArrowLeft className="w-5 h-5 text-foreground" />
-      </Link>
 
       {/* Login Card */}
       <motion.div

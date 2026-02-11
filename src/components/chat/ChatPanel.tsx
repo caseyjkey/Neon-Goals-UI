@@ -222,6 +222,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
     const fetchChatHistory = async () => {
       if (mode === 'goal' && goalId) {
         // Fetch goal chat history
+        console.log('[ChatPanel] Fetching goal chat for:', goalId);
         await fetchGoalChat(goalId);
       } else if (mode === 'creation') {
         // Fetch specialist chat history based on active category
@@ -240,9 +241,18 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  // Scroll to bottom when messages change
   useEffect(() => {
     scrollToBottom();
   }, [chat.messages]);
+
+  // Scroll to bottom on initial mount (when chat is first loaded)
+  useEffect(() => {
+    if (chat.messages.length > 0) {
+      // Use immediate scroll on initial load, smooth for updates
+      messagesEndRef.current?.scrollIntoView({ behavior: 'auto' });
+    }
+  }, []); // Only run once on mount
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

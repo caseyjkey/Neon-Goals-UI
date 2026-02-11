@@ -661,6 +661,7 @@ export const useAppStore = create<AppState>()(
             goalPreview: (response as any).goalPreview,
             awaitingConfirmation: (response as any).awaitingConfirmation,
             proposalType: (response as any).proposalType,
+            commands: response.commands,
           };
 
           set((state) => ({
@@ -678,21 +679,15 @@ export const useAppStore = create<AppState>()(
             get().setLatestProposal(`goal-${goalId}`, assistantMessage.id);
           }
 
-          // Execute commands if present
-          if (response.commands && response.commands.length > 0) {
-            for (const cmd of response.commands) {
-              if (cmd.type === 'CREATE_SUBGOAL') {
-                // Use parentGoalId from command data if provided, otherwise use current goal
-                const parentGoalId = cmd.data.parentGoalId || goalId;
-                await get().createSubgoal(cmd.data, parentGoalId);
-              } else if (cmd.type === 'UPDATE_PROGRESS') {
-                await get().updateGoalProgress(goalId, cmd.data);
-              }
-            }
-            // Refresh goals to show new subgoals (only if not in demo mode)
-            if (!isDemo) {
-              await get().fetchGoals();
-            }
+          // Store pending commands for user confirmation (goal chat)
+          if ((response as any).awaitingConfirmation && response.commands?.length > 0) {
+            set({
+              pendingCommands: {
+                chatId: `goal-${goalId}`,
+                commands: response.commands,
+                timestamp: Date.now(),
+              },
+            });
           }
         } catch (error) {
           console.error('AI goal chat error:', error);
@@ -1264,6 +1259,7 @@ export const useAppStore = create<AppState>()(
                         goalPreview: (response as any).goalPreview,
                         awaitingConfirmation: (response as any).awaitingConfirmation,
                         proposalType: (response as any).proposalType,
+                        commands: response.commands,
                       }
                     : msg
                 ),
@@ -1437,6 +1433,8 @@ export const useAppStore = create<AppState>()(
       fetchGoalChat: async (goalId: string) => {
         try {
           const isDemo = get().isDemoMode;
+          console.log('[fetchGoalChat] Fetching chat for goal:', goalId, 'isDemo:', isDemo);
+
           if (isDemo) {
             // Demo mode: initialize with empty chat
             set((state) => ({
@@ -1453,25 +1451,31 @@ export const useAppStore = create<AppState>()(
 
           // Production mode: fetch from API
           const chat = await chatsService.getGoalChat(goalId) as any;
+          console.log('[fetchGoalChat] Received chat data:', chat);
+
+          const mappedMessages = (chat.messages || []).map((m: any) => ({
+            id: m.id,
+            role: m.role,
+            content: m.content,
+            timestamp: new Date(m.timestamp),
+            goalPreview: m.goalPreview,
+            awaitingConfirmation: m.awaitingConfirmation,
+            proposalType: m.proposalType,
+            commands: m.commands,
+          }));
+          console.log('[fetchGoalChat] Mapped messages:', mappedMessages);
+
           set((state) => ({
             goalChats: {
               ...state.goalChats,
               [goalId]: {
-                messages: (chat.messages || []).map((m: any) => ({
-                  id: m.id,
-                  role: m.role,
-                  content: m.content,
-                  timestamp: new Date(m.timestamp),
-                  goalPreview: m.goalPreview,
-                  awaitingConfirmation: m.awaitingConfirmation,
-                  proposalType: m.proposalType,
-                })),
+                messages: mappedMessages,
                 isLoading: false,
               },
             },
           }));
         } catch (error) {
-          console.error(`Failed to fetch goal chat for ${goalId}:`, error);
+          console.error(`[fetchGoalChat] Failed to fetch goal chat for ${goalId}:`, error);
           // Initialize empty chat on error
           set((state) => ({
             goalChats: {
@@ -1547,6 +1551,7 @@ export const useAppStore = create<AppState>()(
                           goalPreview: (response as any).goalPreview,
                           awaitingConfirmation: (response as any).awaitingConfirmation,
                           proposalType: (response as any).proposalType,
+                          commands: response.commands,
                         }
                       : msg
                   ),
@@ -1617,6 +1622,7 @@ export const useAppStore = create<AppState>()(
                           goalPreview: (finalChunk as any).goalPreview,
                           awaitingConfirmation: (finalChunk as any).awaitingConfirmation,
                           proposalType: (finalChunk as any).proposalType,
+                          commands: finalChunk.commands,
                         }
                       : msg
                   ),

@@ -135,6 +135,7 @@ export interface Message {
   goalPreview?: string;
   awaitingConfirmation?: boolean;
   proposalType?: ProposalType;
+  commands?: Array<{ type: string; data: any }>;
 }
 
 export interface ChatState {
