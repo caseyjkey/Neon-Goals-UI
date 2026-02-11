@@ -974,7 +974,7 @@ export const useAppStore = create<AppState>()(
             // Production mode: call the appropriate confirm endpoint
             if (chatId === 'overview' || chatId === 'creation') {
               await aiOverviewChatService.confirmCommands(commands as any);
-            } else if (chatId.startsWith?.('goal-'))) {
+            } else if (chatId?.startsWith('goal-')) {
               // Goal chat: extract goalId from chatId (format: "goal-{goalId}")
               const goalId = chatId.replace('goal-', '');
               await aiGoalChatService.confirmCommands(goalId, commands);
@@ -1016,7 +1016,7 @@ export const useAppStore = create<AppState>()(
                 messages: [...state.creationChat.messages, successMessage],
               },
             }));
-          } else if (chatId.startsWith?.('goal-'))) {
+          } else if (chatId?.startsWith('goal-')) {
             // Goal chat: extract goalId and add success message
             const goalId = chatId.replace('goal-', '');
             set((state) => ({
@@ -1064,7 +1064,7 @@ export const useAppStore = create<AppState>()(
                 messages: [...state.creationChat.messages, errorMessage],
               },
             }));
-          } else if (chatId.startsWith?.('goal-'))) {
+          } else if (chatId?.startsWith('goal-')) {
             // Goal chat: extract goalId and add error message
             const goalId = chatId.replace('goal-', '');
             set((state) => ({
