@@ -132,7 +132,9 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
   // For goal mode, use goalChats
   const chat = useMemo(() => {
     if (mode === 'goal') {
-      return goalChats[goalId || ''] || { messages: [], isLoading: false };
+      const goalChat = goalChats[goalId || ''] || { messages: [], isLoading: false };
+      console.log('[ChatPanel] goal chat for', goalId, ':', goalChat);
+      return goalChat;
     }
     // Creation mode - use specialist chats
     if (activeCategory === 'all') {
