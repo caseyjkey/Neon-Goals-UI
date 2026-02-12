@@ -11,9 +11,9 @@ jobs:
     steps:
       - name: Deploy
         run: |
+          export PATH=/home/ec2-user/.bun/bin:$PATH
           cd /var/www/Neon-Goals-UI
           git fetch origin
           git reset --hard origin/main
           bun install --frozen-lockfile
-          bun run db:generate
           bun run build
