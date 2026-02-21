@@ -11,6 +11,7 @@ interface UsePlaidLinkReturn {
   accounts: PlaidAccount[];
   fetchAccounts: () => Promise<void>;
   syncAccount: (accountId: string) => Promise<void>;
+  removeAccount: (accountId: string) => Promise<void>;
   isSyncing: string | null;
 }
 
@@ -41,30 +42,23 @@ const DEMO_PLAID_ACCOUNTS: PlaidAccount[] = [
 ];
 
 export const usePlaid = (): UsePlaidLinkReturn => {
-  const { isDemoMode } = useAppStore();
+  const { isDemoMode, plaidAccounts, fetchPlaidAccounts, addPlaidAccounts, removePlaidAccount, syncPlaidAccount } = useAppStore();
   const [linkToken, setLinkToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [accounts, setAccounts] = useState<PlaidAccount[]>([]);
   const [isSyncing, setIsSyncing] = useState<string | null>(null);
   const openRef = useRef<(() => void) | null>(null);
 
   // Fetch existing linked accounts on mount
   const fetchAccounts = useCallback(async () => {
-    // Skip API call in demo mode, use demo data
+    // In demo mode, set demo accounts directly
     if (isDemoMode) {
-      setAccounts(DEMO_PLAID_ACCOUNTS);
+      addPlaidAccounts(DEMO_PLAID_ACCOUNTS);
       return;
     }
 
-    try {
-      const fetchedAccounts = await plaidService.getAccounts();
-      setAccounts(fetchedAccounts);
-    } catch (err) {
-      // Silently ignore errors - just means no accounts linked
-      setAccounts([]);
-    }
-  }, [isDemoMode]);
+    await fetchPlaidAccounts();
+  }, [isDemoMode, fetchPlaidAccounts, addPlaidAccounts]);
 
   useEffect(() => {
     fetchAccounts();
@@ -94,12 +88,18 @@ export const usePlaid = (): UsePlaidLinkReturn => {
       setIsLoading(true);
       setError(null);
       console.log('[usePlaid] Linking account with public token:', publicToken.substring(0, 20) + '...');
+      console.log('[usePlaid] Link metadata:', metadata);
       const response = await plaidService.linkAccount(publicToken);
+      console.log('[usePlaid] Link response accounts:', response.accounts?.map(a => ({
+        id: a.id,
+        name: a.accountName,
+        type: a.accountType,
+        subtype: a.accountSubtype,
+        plaidId: a.plaidAccountId
+      })));
       if (response.accounts) {
-        setAccounts(prev => [...prev, ...response.accounts]);
+        addPlaidAccounts(response.accounts);
       }
-      // Refresh all accounts after linking
-      await fetchAccounts();
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to link account';
       setError(message);
@@ -108,7 +108,7 @@ export const usePlaid = (): UsePlaidLinkReturn => {
       setIsLoading(false);
       setLinkToken(null);
     }
-  }, [fetchAccounts]);
+  }, [addPlaidAccounts]);
 
   const onExit: PlaidLinkOnExit = useCallback((err) => {
     if (err) {
@@ -175,23 +175,35 @@ export const usePlaid = (): UsePlaidLinkReturn => {
   const syncAccount = useCallback(async (accountId: string) => {
     try {
       setIsSyncing(accountId);
-      await plaidService.syncAccount(accountId);
-      await fetchAccounts();
+      await syncPlaidAccount(accountId);
     } catch (err) {
       console.error('Failed to sync account:', err);
     } finally {
       setIsSyncing(null);
     }
-  }, [fetchAccounts]);
+  }, [syncPlaidAccount]);
+
+  const removeAccount = useCallback(async (accountId: string) => {
+    try {
+      setIsLoading(true);
+      await removePlaidAccount(accountId);
+    } catch (err) {
+      console.error('Failed to remove account:', err);
+      throw err;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [removePlaidAccount]);
 
   return {
     open: handleOpen,
     ready: !!linkToken && ready,
     isLoading,
     error,
-    accounts,
+    accounts: plaidAccounts,
     fetchAccounts,
     syncAccount,
+    removeAccount,
     isSyncing,
   };
 };

@@ -38,8 +38,40 @@ const getDefaultIcon = (institutionName: string): string => {
   return '🏦';
 };
 
-const isDebtType = (type: string): boolean => {
-  return ['credit', 'loan'].includes(type);
+const isDebtType = (type: string, subtype?: string): boolean => {
+  const typeLower = type.toLowerCase();
+  const subtypeLower = subtype?.toLowerCase() || '';
+  return (
+    ['credit', 'loan'].includes(typeLower) ||
+    ['credit_card', 'auto', 'mortgage', 'student', 'loan'].includes(subtypeLower)
+  );
+};
+
+// Account type display config - uses subtype when available, falls back to type
+const getAccountTypeLabel = (type: string, subtype?: string): { label: string } => {
+  const subtypeLower = subtype?.toLowerCase() || '';
+  const typeLower = type.toLowerCase();
+
+  // Check subtype first for more specific labels
+  if (subtypeLower === 'checking') return { label: 'Checking' };
+  if (subtypeLower === 'savings') return { label: 'Savings' };
+  if (subtypeLower === 'credit_card') return { label: 'Credit' };
+  if (subtypeLower === 'money_market') return { label: 'Money Market' };
+  if (subtypeLower === 'cd') return { label: 'CD' };
+  if (subtypeLower === 'ira' || subtypeLower === 'roth' || subtypeLower === '401k') return { label: 'Retirement' };
+  if (subtypeLower === 'brokerage') return { label: 'Brokerage' };
+  if (subtypeLower === 'auto') return { label: 'Auto Loan' };
+  if (subtypeLower === 'mortgage') return { label: 'Mortgage' };
+  if (subtypeLower === 'student') return { label: 'Student Loan' };
+
+  // Fall back to type
+  if (typeLower === 'depository') return { label: 'Bank' };
+  if (typeLower === 'credit') return { label: 'Credit' };
+  if (typeLower === 'investment') return { label: 'Investment' };
+  if (typeLower === 'brokerage') return { label: 'Brokerage' };
+  if (typeLower === 'loan') return { label: 'Loan' };
+
+  return { label: 'Account' };
 };
 
 export const PlaidAccountCard: React.FC<PlaidAccountCardProps> = ({
@@ -48,9 +80,10 @@ export const PlaidAccountCard: React.FC<PlaidAccountCardProps> = ({
   onClick,
   isSyncing = false,
 }) => {
-  const isDebt = account.isDebt || isDebtType(account.accountType);
+  const isDebt = account.isDebt || isDebtType(account.accountType, account.accountSubtype);
   const displayBalance = Math.abs(account.currentBalance);
   const icon = getDefaultIcon(account.institutionName);
+  const typeConfig = getAccountTypeLabel(account.accountType, account.accountSubtype);
 
   return (
     <motion.div
@@ -65,10 +98,15 @@ export const PlaidAccountCard: React.FC<PlaidAccountCardProps> = ({
 
       {/* Account Info */}
       <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-foreground truncate">
-          {account.accountName}
-          {account.mask && <span className="text-muted-foreground"> ••{account.mask}</span>}
-        </p>
+        <div className="flex items-center gap-2">
+          <p className="text-sm font-medium text-foreground truncate">
+            {account.accountName}
+            {account.mask && <span className="text-muted-foreground"> ••{account.mask}</span>}
+          </p>
+          <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-muted/50 text-foreground">
+            {typeConfig.label}
+          </span>
+        </div>
         <p className="text-xs text-muted-foreground truncate">
           {account.institutionName}
         </p>

@@ -66,6 +66,11 @@ export const plaidService = {
     return Array.isArray(response) ? response : response.accounts || [];
   },
 
+  /** Delete/unlink an account */
+  async deleteAccount(accountId: string): Promise<void> {
+    return apiClient.delete(`/plaid/accounts/${accountId}`);
+  },
+
   /** Sync balance for an account */
   async syncAccount(accountId: string): Promise<PlaidAccount> {
     return apiClient.post<PlaidAccount>(`/plaid/sync/${accountId}`);

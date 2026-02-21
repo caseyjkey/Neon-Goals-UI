@@ -230,13 +230,11 @@ export const GoalDetailView: React.FC<GoalDetailViewProps> = ({ goal, onClose })
 
 // Item Goal Detail with Scanner Mode
 const ItemGoalDetail: React.FC<{ goal: ItemGoal }> = ({ goal }) => {
-  const { isChatMinimized, updateGoal, searchAndUpdateGoal, goals, fetchGoals, goalsVersion } = useAppStore();
+  const { isChatMinimized, updateGoal, searchAndUpdateGoal, fetchGoals } = useAppStore();
   const [isScannerOpen, setIsScannerOpen] = useState(false);
 
-  // Get the latest goal from store to ensure reactivity (use goalsVersion to force updates)
-  const latestGoal = useMemo(() => {
-    return goals.find(g => g.id === goal.id) as ItemGoal || goal;
-  }, [goals, goal.id, goalsVersion]);
+  // Subscribe directly to this specific goal from the store for reactivity
+  const latestGoal = useAppStore(state => state.goals.find(g => g.id === goal.id) as ItemGoal) || goal;
 
   // Initialize selectedCandidate from the goal's selectedCandidateId (if set), but don't auto-select first candidate
   const [selectedCandidate, setSelectedCandidate] = useState<ProductCandidate | null>(() => {
@@ -446,7 +444,7 @@ const ItemGoalDetail: React.FC<{ goal: ItemGoal }> = ({ goal }) => {
           <>
             <div data-scanner-open="true" style={{display: 'none'}} />
             <CandidateScanner
-              key={`${latestGoal.candidates.length}-${goalsVersion}`}
+              key={`${latestGoal.candidates.length}-${latestGoal.updatedAt || ''}`}
               candidates={latestGoal.candidates}
               selectedCandidateId={selectedCandidate?.id}
               shortlistedCandidates={(latestGoal as ItemGoal).shortlistedCandidates}

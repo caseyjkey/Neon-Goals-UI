@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, MapPin, CreditCard, Clock, Tag, Building2, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react';
+import { X, MapPin, CreditCard, Clock, Tag, Building2, CheckCircle, AlertCircle, RefreshCw, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { PlaidAccount, PlaidTransaction } from '@/services/plaidService';
 import { plaidService } from '@/services/plaidService';
@@ -9,6 +9,7 @@ interface TransactionModalProps {
   account: PlaidAccount;
   isOpen: boolean;
   onClose: () => void;
+  onDelete?: (accountId: string) => Promise<void>;
 }
 
 const channelLabels: Record<string, string> = {
@@ -38,15 +39,23 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   account,
   isOpen,
   onClose,
+  onDelete,
 }) => {
   const [transactions, setTransactions] = useState<PlaidTransaction[]>([]);
   const [balance, setBalance] = useState<{ balance: number; available?: number } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     if (isOpen && account.id) {
       fetchData();
+    }
+    // Reset delete confirmation when modal closes
+    if (!isOpen) {
+      setShowDeleteConfirm(false);
+      setIsDeleting(false);
     }
   }, [isOpen, account.id]);
 
@@ -67,7 +76,8 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     }
   };
 
-  const isDebt = account.isDebt || ['credit', 'loan'].includes(account.accountType);
+  const isDebt = account.isDebt || ['credit', 'loan'].includes(account.accountType.toLowerCase()) ||
+    ['credit_card', 'auto', 'mortgage', 'student', 'loan'].includes(account.accountSubtype?.toLowerCase() || '');
 
   return (
     <AnimatePresence>
@@ -110,13 +120,73 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                     <p className="text-xs text-muted-foreground">{account.institutionName}</p>
                   </div>
                 </div>
-                <button
-                  onClick={onClose}
-                  className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
-                >
-                  <X className="w-5 h-5" />
-                </button>
+                <div className="flex items-center gap-2">
+                  {onDelete && !showDeleteConfirm && (
+                    <button
+                      onClick={() => setShowDeleteConfirm(true)}
+                      className="p-2 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+                      aria-label="Delete account"
+                    >
+                      <Trash2 className="w-5 h-5" />
+                    </button>
+                  )}
+                  <button
+                    onClick={onClose}
+                    className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
               </div>
+
+              {/* Delete Confirmation */}
+              <AnimatePresence>
+                {showDeleteConfirm && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="mt-4 p-3 rounded-xl bg-destructive/10 border border-destructive/30"
+                  >
+                    <p className="text-sm text-foreground mb-3">
+                      Remove this account from your overview?
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setShowDeleteConfirm(false)}
+                        disabled={isDeleting}
+                        className="flex-1 py-2 px-3 rounded-lg bg-muted text-foreground text-sm font-medium hover:bg-muted/80 transition-colors"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        onClick={async () => {
+                          setIsDeleting(true);
+                          try {
+                            await onDelete(account.id);
+                            onClose();
+                          } catch (err) {
+                            console.error('Failed to delete account:', err);
+                          } finally {
+                            setIsDeleting(false);
+                          }
+                        }}
+                        disabled={isDeleting}
+                        className="flex-1 py-2 px-3 rounded-lg bg-destructive text-destructive-foreground text-sm font-medium hover:bg-destructive/90 transition-colors flex items-center justify-center gap-2"
+                      >
+                        {isDeleting ? (
+                          <>
+                            <RefreshCw className="w-4 h-4 animate-spin" />
+                            Removing...
+                          </>
+                        ) : (
+                          'Remove Account'
+                        )}
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
               {/* Balance Summary */}
               <div className="mt-4 grid grid-cols-2 gap-3">

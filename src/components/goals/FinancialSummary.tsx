@@ -16,23 +16,57 @@ interface FinancialSummaryProps {
 }
 
 // Map Plaid account types to our section categories
+// Also check accountSubtype since Plaid uses 'depository' type with 'checking'/'savings' subtype
 const getCashAccounts = (accounts: PlaidAccount[]) =>
-  accounts.filter(a => ['checking', 'savings', 'depository'].includes(a.accountType));
+  accounts.filter(a => {
+    const type = a.accountType.toLowerCase();
+    const subtype = a.accountSubtype?.toLowerCase() || '';
+    // Cash: depository accounts (checking, savings, money market, cd)
+    return (
+      type === 'depository' ||
+      ['checking', 'savings', 'money_market', 'cd', 'paypal'].includes(subtype)
+    );
+  });
 
 const getInvestmentAccounts = (accounts: PlaidAccount[]) =>
-  accounts.filter(a => ['investment', 'retirement', 'brokerage'].includes(a.accountType));
+  accounts.filter(a => {
+    const type = a.accountType.toLowerCase();
+    const subtype = a.accountSubtype?.toLowerCase() || '';
+    // Investments & Retirement: investment/brokerage accounts
+    return (
+      type === 'investment' ||
+      type === 'brokerage' ||
+      ['ira', '401k', 'roth', 'brokerage', 'hsa'].includes(subtype)
+    );
+  });
 
 const getCreditAccounts = (accounts: PlaidAccount[]) =>
-  accounts.filter(a => ['credit', 'loan'].includes(a.accountType));
+  accounts.filter(a => {
+    const type = a.accountType.toLowerCase();
+    const subtype = a.accountSubtype?.toLowerCase() || '';
+    // Credit & Loans: credit cards and loans
+    return (
+      type === 'credit' ||
+      type === 'loan' ||
+      ['credit_card', 'auto', 'mortgage', 'student', 'loan'].includes(subtype)
+    );
+  });
 
-const isDebtType = (type: string) => ['credit', 'loan'].includes(type);
+const isDebtType = (type: string, subtype?: string) => {
+  const typeLower = type.toLowerCase();
+  const subtypeLower = subtype?.toLowerCase() || '';
+  return (
+    ['credit', 'loan'].includes(typeLower) ||
+    ['credit_card', 'auto', 'mortgage', 'student', 'loan'].includes(subtypeLower)
+  );
+};
 
 export const FinancialSummary: React.FC<FinancialSummaryProps> = ({ className }) => {
   const { goals, syncFinanceGoal } = useAppStore();
   const [showAccounts, setShowAccounts] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState<PlaidAccount | null>(null);
   const syncToast = useSyncToast();
-  const { open: openPlaidLink, isLoading: isPlaidLoading, error: plaidError, accounts, syncAccount, isSyncing, fetchAccounts } = usePlaid();
+  const { open: openPlaidLink, isLoading: isPlaidLoading, error: plaidError, accounts, syncAccount, removeAccount, isSyncing, fetchAccounts } = usePlaid();
 
   const financeGoals = goals.filter(
     (goal): goal is FinanceGoal => goal.type === 'finance' && goal.status === 'active'
@@ -40,10 +74,10 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({ className })
 
   // Calculate totals from Plaid accounts
   const totalAssets = accounts
-    .filter(a => !isDebtType(a.accountType) && !a.isDebt)
+    .filter(a => !isDebtType(a.accountType, a.accountSubtype) && !a.isDebt)
     .reduce((sum, a) => sum + a.currentBalance, 0);
   const totalDebt = accounts
-    .filter(a => isDebtType(a.accountType) || a.isDebt)
+    .filter(a => isDebtType(a.accountType, a.accountSubtype) || a.isDebt)
     .reduce((sum, a) => sum + Math.abs(a.currentBalance), 0);
   const netWorth = totalAssets - totalDebt;
 
@@ -152,7 +186,7 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({ className })
           <div className="p-3 sm:p-4 rounded-xl bg-muted/30 border border-border/30">
             <p className="text-xs text-muted-foreground mb-1">Total Debt</p>
             <p className="text-base sm:text-lg md:text-xl lg:text-2xl font-heading font-bold text-destructive">
-              {hasAnyAccounts ? `-$${totalDebt.toLocaleString()}` : '—'}
+              {totalDebt > 0 ? `-$${totalDebt.toLocaleString()}` : hasAnyAccounts ? '$0' : '—'}
             </p>
           </div>
 
@@ -272,6 +306,7 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({ className })
           account={selectedAccount}
           isOpen={!!selectedAccount}
           onClose={() => setSelectedAccount(null)}
+          onDelete={removeAccount}
         />
       )}
     </>

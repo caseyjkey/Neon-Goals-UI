@@ -12,6 +12,7 @@ import type {
   GoalCategory,
   ViewMode
 } from '@/types/goals';
+import type { PlaidAccount } from '@/services/plaidService';
 import { authService } from '@/services/authService';
 import { goalsService } from '@/services/goalsService';
 import { usersService } from '@/services/usersService';
@@ -23,6 +24,7 @@ import { aiSpecialistChatService } from '@/services/aiSpecialistChatService';
 import { mockOverviewChatService } from '@/services/mockChatService';
 import { mockGoalChatService } from '@/services/mockChatService';
 import { browserUseService } from '@/services/browserUseService';
+import { plaidService } from '@/services/plaidService';
 
 // Chat command types from backend
 export interface ChatCommand {
@@ -52,6 +54,8 @@ interface AppState {
   // Data
   goals: Goal[];
   goalsVersion: number; // Increment when goals are fetched to force re-renders
+  plaidAccounts: PlaidAccount[]; // Linked bank/credit accounts
+  plaidAccountsVersion: number; // Increment for re-renders
   user: User | null;
   settings: Settings;
 
@@ -143,6 +147,12 @@ interface AppState {
   // Finance actions
   syncFinanceGoal: (goalId: string) => void;
 
+  // Plaid actions
+  fetchPlaidAccounts: () => Promise<void>;
+  addPlaidAccounts: (accounts: PlaidAccount[]) => void;
+  removePlaidAccount: (accountId: string) => Promise<void>;
+  syncPlaidAccount: (accountId: string) => Promise<void>;
+
   // Item actions
   searchAndUpdateGoal: (goalId: string, query?: string) => Promise<void>;
 
@@ -186,6 +196,8 @@ export const useAppStore = create<AppState>()(
 
       goals: [],
       goalsVersion: 0,
+      plaidAccounts: [],
+      plaidAccountsVersion: 0,
       user: null, // Start with no user - requires login
       settings: defaultSettings,
       isLoading: false,
@@ -849,6 +861,84 @@ export const useAppStore = create<AppState>()(
           return goal;
         }),
       })),
+
+      // Plaid actions
+      fetchPlaidAccounts: async () => {
+        const isDemo = get().isDemoMode;
+        if (isDemo) {
+          // Demo mode: use mock accounts from usePlaidLink
+          return;
+        }
+
+        try {
+          const fetchedAccounts = await plaidService.getAccounts();
+          console.log('[store] Fetched Plaid accounts:', fetchedAccounts.map(a => ({
+            id: a.id,
+            name: a.accountName,
+            type: a.accountType,
+            subtype: a.accountSubtype,
+          })));
+          // Deduplicate by plaidAccountId
+          const uniqueAccounts = fetchedAccounts.filter((account, index, self) =>
+            index === self.findIndex(a => a.plaidAccountId === account.plaidAccountId)
+          );
+          set({
+            plaidAccounts: uniqueAccounts,
+            plaidAccountsVersion: get().plaidAccountsVersion + 1,
+          });
+        } catch (err) {
+          console.error('[store] Failed to fetch Plaid accounts:', err);
+          set({ plaidAccounts: [] });
+        }
+      },
+
+      addPlaidAccounts: (accounts) => set((state) => {
+        // Deduplicate by plaidAccountId
+        const existingIds = new Set(state.plaidAccounts.map(a => a.plaidAccountId));
+        const newAccounts = accounts.filter(a => !existingIds.has(a.plaidAccountId));
+        return {
+          plaidAccounts: [...state.plaidAccounts, ...newAccounts],
+          plaidAccountsVersion: state.plaidAccountsVersion + 1,
+        };
+      }),
+
+      removePlaidAccount: async (accountId) => {
+        try {
+          const isDemo = get().isDemoMode;
+          if (!isDemo) {
+            try {
+              await plaidService.deleteAccount(accountId);
+            } catch (err) {
+              // If endpoint doesn't exist, still remove from local state
+              if (err instanceof Error && !err.message.includes('404')) {
+                throw err;
+              }
+              console.log('[store] Delete endpoint not available, removing from local state only');
+            }
+          }
+          // Remove from local state
+          set((state) => ({
+            plaidAccounts: state.plaidAccounts.filter(a => a.id !== accountId),
+            plaidAccountsVersion: state.plaidAccountsVersion + 1,
+          }));
+        } catch (err) {
+          console.error('[store] Failed to remove Plaid account:', err);
+          throw err;
+        }
+      },
+
+      syncPlaidAccount: async (accountId) => {
+        try {
+          const isDemo = get().isDemoMode;
+          if (!isDemo) {
+            await plaidService.syncAccount(accountId);
+          }
+          // Refresh all accounts after sync
+          await get().fetchPlaidAccounts();
+        } catch (err) {
+          console.error('[store] Failed to sync Plaid account:', err);
+        }
+      },
 
       // Item actions
       searchAndUpdateGoal: async (goalId, query) => {
