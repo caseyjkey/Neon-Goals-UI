@@ -19,6 +19,7 @@ import Callback from "./pages/Callback";
 import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import { apiClient } from "./services/apiClient";
+import { authService } from "./services/authService";
 
 const queryClient = new QueryClient();
 
@@ -123,6 +124,19 @@ const AppContent = () => {
   useEffect(() => {
     initializeApp();
   }, [initializeApp]);
+
+  // Re-validate auth when app returns to foreground (e.g. mobile tab switch)
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && authService.isAuthenticated()) {
+        authService.getProfile().catch(() => {
+          // 401 will be handled by apiClient's unauthorized callback
+        });
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+  }, []);
 
   return (
     <Routes>

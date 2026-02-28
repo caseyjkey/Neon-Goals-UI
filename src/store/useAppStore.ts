@@ -2018,7 +2018,15 @@ export const useAppStore = create<AppState>()(
         const token = authService.initializeAuth();
         if (token) {
           await get().fetchUser();
-          await get().fetchGoals();
+          // Only fetch goals if user is still set (fetchUser clears it on 401)
+          if (get().user) {
+            await get().fetchGoals();
+          }
+        } else {
+          // No token — clear any stale persisted user
+          if (get().user) {
+            set({ user: null, goals: [] });
+          }
         }
       },
 
@@ -2029,10 +2037,12 @@ export const useAppStore = create<AppState>()(
           set({ user, isLoading: false });
         } catch (error: any) {
           console.error('Failed to fetch user:', error);
-          // Auto-enable demo mode on 401 Unauthorized
-          if (error?.response?.status === 401 || error?.status === 401) {
-            console.log('⚠️ Authentication failed - enabling demo mode');
-            set({ error: null, isLoading: false, isDemoMode: true });
+          const msg = error?.message || '';
+          const is401 = error?.response?.status === 401 || error?.status === 401 || msg.includes('Session expired');
+          if (is401) {
+            // Token expired — clear persisted user and redirect to login
+            authService.logout();
+            set({ user: null, goals: [], error: null, isLoading: false, isDemoMode: false });
           } else {
             set({ error: 'Failed to fetch user profile', isLoading: false });
           }
