@@ -122,6 +122,38 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
     fetchGoalChat,
   } = useAppStore();
 
+  // Compute chat ID for latest proposal tracking
+  const chatId = useMemo(() => {
+    if (mode === 'goal') return `goal-${goalId}`;
+    if (activeCategory === 'all') return 'overview';
+    if (activeCategory === 'items' || activeCategory === 'finances' || activeCategory === 'actions') return activeCategory;
+    return 'creation';
+  }, [mode, goalId, activeCategory]);
+
+  // For creation mode, use overviewChat (all) or categoryChats (items/finances/actions)
+  // For goal mode, use goalChats
+  const chat = useMemo(() => {
+    if (mode === 'goal') {
+      const goalChat = goalChats[goalId || ''] || { messages: [], isLoading: false };
+      console.log('[ChatPanel] goal chat for', goalId, ':', goalChat);
+      return goalChat;
+    }
+    // Creation mode - use specialist chats
+    if (activeCategory === 'all') {
+      return overviewChat || { messages: [], isLoading: false };
+    }
+    if (activeCategory === 'items') {
+      return categoryChats.items || { messages: [], isLoading: false };
+    }
+    if (activeCategory === 'finances') {
+      return categoryChats.finances || { messages: [], isLoading: false };
+    }
+    if (activeCategory === 'actions') {
+      return categoryChats.actions || { messages: [], isLoading: false };
+    }
+    return creationChat;
+  }, [mode, goalId, activeCategory, goalChats, overviewChat, categoryChats, creationChat]);
+
   // Extraction hook for handling product URL extraction
   const extraction = useExtraction();
 
@@ -163,38 +195,6 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
       }, 500); // Small delay to ensure UI updates first
     }
   }, [extraction.isComplete, extraction.groupId, extraction.results]);
-
-  // Compute chat ID for latest proposal tracking
-  const chatId = useMemo(() => {
-    if (mode === 'goal') return `goal-${goalId}`;
-    if (activeCategory === 'all') return 'overview';
-    if (activeCategory === 'items' || activeCategory === 'finances' || activeCategory === 'actions') return activeCategory;
-    return 'creation';
-  }, [mode, goalId, activeCategory]);
-
-  // For creation mode, use overviewChat (all) or categoryChats (items/finances/actions)
-  // For goal mode, use goalChats
-  const chat = useMemo(() => {
-    if (mode === 'goal') {
-      const goalChat = goalChats[goalId || ''] || { messages: [], isLoading: false };
-      console.log('[ChatPanel] goal chat for', goalId, ':', goalChat);
-      return goalChat;
-    }
-    // Creation mode - use specialist chats
-    if (activeCategory === 'all') {
-      return overviewChat || { messages: [], isLoading: false };
-    }
-    if (activeCategory === 'items') {
-      return categoryChats.items || { messages: [], isLoading: false };
-    }
-    if (activeCategory === 'finances') {
-      return categoryChats.finances || { messages: [], isLoading: false };
-    }
-    if (activeCategory === 'actions') {
-      return categoryChats.actions || { messages: [], isLoading: false };
-    }
-    return creationChat;
-  }, [mode, goalId, activeCategory, goalChats, overviewChat, categoryChats, creationChat]);
   const goal = goalId ? goals.find(g => g.id === goalId) : null;
 
   // Memoize persona to prevent infinite re-renders

@@ -6,6 +6,7 @@
  */
 
 import { API_BASE_URL } from '@/lib/apiConfig';
+import { apiClient } from './apiClient';
 
 export interface ExtractionProgress {
   jobId: string;
@@ -112,17 +113,10 @@ export async function createGoalsFromExtraction(
   groupName: string,
 ): Promise<{ success: boolean; groupGoalId?: string; error?: string }> {
   try {
-    const response = await apiClient.post('/extraction/create-goals', {
+    const data = await apiClient.post<{ id: string }>('/extraction/create-goals', {
       groupId,
       groupName,
     });
-
-    if (!response.ok) {
-      const error = await response.text();
-      return { success: false, error };
-    }
-
-    const data = await response.json();
     return { success: true, groupGoalId: data.id };
   } catch (error) {
     return { success: false, error: String(error) };
@@ -134,9 +128,7 @@ export async function createGoalsFromExtraction(
  */
 export async function getExtractionJobStatus(jobId: string): Promise<ExtractionProgress | null> {
   try {
-    const response = await apiClient.get(`/extraction/job/${jobId}`);
-    if (!response.ok) return null;
-    return await response.json();
+    return await apiClient.get<ExtractionProgress>(`/extraction/job/${jobId}`);
   } catch {
     return null;
   }
@@ -147,9 +139,7 @@ export async function getExtractionJobStatus(jobId: string): Promise<ExtractionP
  */
 export async function getExtractionGroupJobs(groupId: string): Promise<ExtractionProgress[]> {
   try {
-    const response = await apiClient.get(`/extraction/jobs/${groupId}`);
-    if (!response.ok) return [];
-    return await response.json();
+    return await apiClient.get<ExtractionProgress[]>(`/extraction/jobs/${groupId}`);
   } catch {
     return [];
   }
@@ -160,9 +150,7 @@ export async function getExtractionGroupJobs(groupId: string): Promise<Extractio
  */
 export async function isExtractionComplete(groupId: string): Promise<boolean> {
   try {
-    const response = await apiClient.get(`/extraction/complete/${groupId}`);
-    if (!response.ok) return false;
-    const data = await response.json();
+    const data = await apiClient.get<{ complete: boolean }>(`/extraction/complete/${groupId}`);
     return data.complete === true;
   } catch {
     return false;

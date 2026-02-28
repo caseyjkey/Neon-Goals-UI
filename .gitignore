@@ -31,3 +31,4 @@ dist-ssr
 /generated/prisma
 .claude
 .tldr/
+thoughts/
