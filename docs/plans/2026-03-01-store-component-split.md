@@ -61,15 +61,26 @@ src/components/goals/
 - [ ] Update imports in existing files
 - [ ] Run E2E tests
 
-### Phase 3: Migrate Stores (one at a time)
-Order: Auth → View → Goals → Finance → Chat
+### Phase 3: Create Store Slices (No Component Changes)
 
-#### 3a: useAuthStore (~30 min)
-- [ ] Create `useAuthStore.ts` with user/settings state
-- [ ] Move auth actions (login, logout, setUser, updateSettings, setDemoMode)
-- [ ] Update component imports
-- [ ] Run E2E tests
-- [ ] Commit
+First create the store slices without changing any components. The stores should:
+1. Read from localStorage to stay in sync with useAppStore
+2. NOT persist on their own (useAppStore handles persistence)
+3. Be ready for components to import later
+
+#### 3a: useAuthStore (COMPLETED)
+- [x] Created `useAuthStore.ts` - reads from localStorage, doesn't persist on its own
+- [x] Created `src/store/index.ts` barrel exports
+- [x] All 31 E2E tests passing
+- [x] Components still use `useAppStore` (backward compatible)
+
+#### 3b: Migrate Components (one at a time)
+For each domain store:
+1. Update components to import from new store
+2. Run tests
+3. Commit
+
+This approach maintains backward compatibility and incremental progress.
 
 #### 3b: useViewStore (~30 min)
 - [ ] Create `useViewStore.ts` with UI state
