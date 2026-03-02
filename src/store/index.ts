@@ -11,6 +11,10 @@ export { useAppStore } from './useAppStore';
 
 // Domain stores (new)
 export { useAuthStore } from './useAuthStore';
+export { useViewStore } from './useViewStore';
+export { useFinanceStore } from './useFinanceStore';
+export { useGoalsStore } from './useGoalsStore';
+export { useChatStore, setAppStoreActions } from './useChatStore';
 
 // Shared types
 export type { ChatCommand, PendingCommandsState } from './types';
