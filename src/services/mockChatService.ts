@@ -1,24 +1,20 @@
 import { mockGoals } from '@/data/mockGoals';
 import type { Goal, ActionGoal } from '@/types/goals';
+import type { ChatCommand } from '@/store/types';
 
 // Delay helper for simulating network/typing
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
 // Types for mock responses
-export interface MockChatCommand {
-  type: 'CREATE_GOAL' | 'CREATE_SUBGOAL' | 'UPDATE_PROGRESS';
-  data: any;
-}
-
 export interface MockChatResponse {
   content: string;
-  commands: MockChatCommand[];
+  commands: ChatCommand[];
 }
 
 export interface MockStreamChunk {
   content: string;
   done: boolean;
-  commands?: MockChatCommand[];
+  commands?: ChatCommand[];
   goalPreview?: string;
   awaitingConfirmation?: boolean;
 }
@@ -72,7 +68,7 @@ const getMockSubgoal = (index: number): Record<string, any> => {
 const overviewScenarios: Array<{
   keywords: string[];
   response: string;
-  commands: MockChatCommand[];
+  commands: ChatCommand[];
   requireConfirmation?: boolean;
 }> = [
   {

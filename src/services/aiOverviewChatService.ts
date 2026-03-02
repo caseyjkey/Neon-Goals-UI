@@ -1,23 +1,8 @@
 import { apiClient } from './apiClient';
+import type { ChatCommand } from '@/store/types';
 
 export interface OverviewChatRequest {
   message: string;
-}
-
-export type ChatCommandType =
-  | 'CREATE_GOAL'
-  | 'CREATE_SUBGOAL'
-  | 'UPDATE_PROGRESS'
-  | 'UPDATE_TITLE'
-  | 'UPDATE_FILTERS'
-  | 'ADD_TASK'
-  | 'REMOVE_TASK'
-  | 'TOGGLE_TASK'
-  | 'ARCHIVE_GOAL';
-
-export interface ChatCommand {
-  type: ChatCommandType;
-  data: any;
 }
 
 export interface OverviewChatResponse {

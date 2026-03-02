@@ -1,12 +1,8 @@
 import { apiClient } from './apiClient';
+import type { ChatCommand } from '@/store/types';
 
 export interface GoalChatRequest {
   message: string;
-}
-
-export interface ChatCommand {
-  type: 'CREATE_SUBGOAL' | 'UPDATE_PROGRESS' | 'UPDATE_SEARCHTERM' | 'REFRESH_CANDIDATES' | 'ARCHIVE_GOAL';
-  data: any;
 }
 
 export interface GoalChatResponse {

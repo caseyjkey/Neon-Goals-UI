@@ -1,8 +1,8 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Sparkles, Check, X, AlertTriangle, Archive, Plus, ToggleLeft, Target, Wallet, Edit2 } from 'lucide-react';
+import { Sparkles, Check, X, AlertTriangle, Archive, Plus, ToggleLeft, Target, Wallet, Edit2, TrendingUp, FolderPlus, Layers } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { ChatCommand } from '@/store/useAppStore';
+import type { ChatCommand } from '@/store/types';
 
 interface CommandPreviewProps {
   commands: ChatCommand[];
@@ -11,7 +11,7 @@ interface CommandPreviewProps {
   isLoading?: boolean;
 }
 
-const COMMAND_CONFIG = {
+const COMMAND_CONFIG: Record<string, { icon: React.ElementType; color: string; bgColor: string; borderColor: string; label: string }> = {
   ADD_TASK: {
     icon: Plus,
     color: 'text-green-400',
@@ -33,6 +33,20 @@ const COMMAND_CONFIG = {
     borderColor: 'border-blue-500/30',
     label: 'Update Title',
   },
+  UPDATE_SEARCHTERM: {
+    icon: Target,
+    color: 'text-cyan-400',
+    bgColor: 'bg-cyan-500/10',
+    borderColor: 'border-cyan-500/30',
+    label: 'Update Search Term',
+  },
+  REFRESH_CANDIDATES: {
+    icon: Target,
+    color: 'text-teal-400',
+    bgColor: 'bg-teal-500/10',
+    borderColor: 'border-teal-500/30',
+    label: 'Refresh Candidates',
+  },
   UPDATE_FILTERS: {
     icon: Target,
     color: 'text-purple-400',
@@ -46,6 +60,27 @@ const COMMAND_CONFIG = {
     bgColor: 'bg-red-500/10',
     borderColor: 'border-red-500/30',
     label: 'Archive Goal',
+  },
+  CREATE_GOAL: {
+    icon: FolderPlus,
+    color: 'text-emerald-400',
+    bgColor: 'bg-emerald-500/10',
+    borderColor: 'border-emerald-500/30',
+    label: 'Create Goal',
+  },
+  CREATE_SUBGOAL: {
+    icon: Layers,
+    color: 'text-indigo-400',
+    bgColor: 'bg-indigo-500/10',
+    borderColor: 'border-indigo-500/30',
+    label: 'Create Subgoal',
+  },
+  UPDATE_PROGRESS: {
+    icon: TrendingUp,
+    color: 'text-green-400',
+    bgColor: 'bg-green-500/10',
+    borderColor: 'border-green-500/30',
+    label: 'Update Progress',
   },
 };
 
@@ -63,6 +98,14 @@ const getCommandDescription = (command: ChatCommand): string => {
       return `Refresh candidates for goal`;
     case 'ARCHIVE_GOAL':
       return 'Archive this goal';
+    case 'UPDATE_FILTERS':
+      return `Update filters: ${command.data.filters ? JSON.stringify(command.data.filters) : 'new filters'}`;
+    case 'CREATE_GOAL':
+      return `Create goal: "${command.data.title || 'new goal'}"`;
+    case 'CREATE_SUBGOAL':
+      return `Create subgoal: "${command.data.title || 'new subgoal'}"`;
+    case 'UPDATE_PROGRESS':
+      return `Update progress: ${command.data.progress}%`;
     default:
       return `${command.type}`;
   }
@@ -139,6 +182,60 @@ const renderCommandDetails = (command: ChatCommand, goals: any[]) => {
         </div>
       );
 
+    case 'UPDATE_FILTERS':
+      return (
+        <div className="space-y-2">
+          <p className="text-sm text-slate-300">
+            Update search filters for <span className="text-white font-medium">{goal?.title || 'goal'}</span>:
+          </p>
+          <div className="bg-slate-800/50 rounded-lg p-3 border border-slate-700">
+            <p className="text-sm text-slate-300">
+              {command.data.filters ? JSON.stringify(command.data.filters, null, 2) : 'New filters'}
+            </p>
+          </div>
+        </div>
+      );
+
+    case 'CREATE_GOAL':
+      return (
+        <div className="space-y-2">
+          <p className="text-sm text-slate-300">Will create a new goal:</p>
+          <div className="bg-slate-800/50 rounded-lg p-3 border border-slate-700">
+            <p className="text-white font-medium">{command.data.title || 'Untitled Goal'}</p>
+            {command.data.description && (
+              <p className="text-sm text-slate-400 mt-1">{command.data.description}</p>
+            )}
+          </div>
+        </div>
+      );
+
+    case 'CREATE_SUBGOAL':
+      return (
+        <div className="space-y-2">
+          <p className="text-sm text-slate-300">
+            Will create subgoal under <span className="text-white font-medium">{goal?.title || 'parent goal'}</span>:
+          </p>
+          <div className="bg-slate-800/50 rounded-lg p-3 border border-slate-700">
+            <p className="text-white font-medium">{command.data.title || 'Untitled Subgoal'}</p>
+            {command.data.description && (
+              <p className="text-sm text-slate-400 mt-1">{command.data.description}</p>
+            )}
+          </div>
+        </div>
+      );
+
+    case 'UPDATE_PROGRESS':
+      return (
+        <div className="space-y-2">
+          <p className="text-sm text-slate-300">
+            Update progress for <span className="text-white font-medium">{goal?.title || 'goal'}</span>:
+          </p>
+          <div className="bg-slate-800/50 rounded-lg p-3 border border-slate-700">
+            <p className="text-white">{command.data.progress}% complete</p>
+          </div>
+        </div>
+      );
+
     default:
       return <p className="text-slate-400">{JSON.stringify(command.data)}</p>;
   }
@@ -176,7 +273,13 @@ export const CommandPreview: React.FC<CommandPreviewProps> = ({
       {/* Commands List */}
       <div className="p-4 space-y-3 max-h-[60vh] overflow-y-auto">
         {commands.map((command, index) => {
-          const config = COMMAND_CONFIG[command.type];
+          const config = COMMAND_CONFIG[command.type] || {
+            icon: Sparkles,
+            color: 'text-slate-400',
+            bgColor: 'bg-slate-500/10',
+            borderColor: 'border-slate-500/30',
+            label: command.type,
+          };
           const Icon = config.icon;
 
           return (

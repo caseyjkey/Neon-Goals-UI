@@ -26,18 +26,9 @@ import { mockGoalChatService } from '@/services/mockChatService';
 import { browserUseService } from '@/services/browserUseService';
 import { plaidService } from '@/services/plaidService';
 
-// Chat command types from backend
-export interface ChatCommand {
-  type: 'ADD_TASK' | 'TOGGLE_TASK' | 'UPDATE_TITLE' | 'UPDATE_SEARCHTERM' | 'REFRESH_CANDIDATES' | 'ARCHIVE_GOAL' | 'CREATE_GOAL' | 'CREATE_SUBGOAL' | 'UPDATE_PROGRESS' | 'UPDATE_FILTERS';
-  goalId?: string;
-  data: any;
-}
-
-export interface PendingCommandsState {
-  chatId: string;
-  commands: ChatCommand[];
-  timestamp: number;
-}
+// Re-export types from ./types for backward compatibility
+export type { ChatCommand, PendingCommandsState } from './types';
+import type { ChatCommand, PendingCommandsState } from './types';
 
 interface AppState {
   // View state
@@ -1311,6 +1302,10 @@ export const useAppStore = create<AppState>()(
                 role: m.role,
                 content: m.content,
                 timestamp: new Date(m.createdAt || m.timestamp),
+                goalPreview: m.metadata?.goalPreview,
+                awaitingConfirmation: m.metadata?.awaitingConfirmation,
+                proposalType: m.metadata?.proposalType,
+                commands: m.metadata?.commands,
               })),
               isLoading: false,
             },
@@ -1529,6 +1524,10 @@ export const useAppStore = create<AppState>()(
                   role: m.role,
                   content: m.content,
                   timestamp: new Date(m.createdAt || m.timestamp),
+                  goalPreview: m.metadata?.goalPreview,
+                  awaitingConfirmation: m.metadata?.awaitingConfirmation,
+                  proposalType: m.metadata?.proposalType,
+                  commands: m.metadata?.commands,
                 })),
                 isLoading: false,
               },
@@ -1579,10 +1578,10 @@ export const useAppStore = create<AppState>()(
             role: m.role,
             content: m.content,
             timestamp: new Date(m.createdAt || m.timestamp),
-            goalPreview: m.goalPreview,
-            awaitingConfirmation: m.awaitingConfirmation,
-            proposalType: m.proposalType,
-            commands: m.commands,
+            goalPreview: m.metadata?.goalPreview || m.goalPreview,
+            awaitingConfirmation: m.metadata?.awaitingConfirmation ?? m.awaitingConfirmation,
+            proposalType: m.metadata?.proposalType || m.proposalType,
+            commands: m.metadata?.commands || m.commands,
           }));
           console.log('[fetchGoalChat] Mapped messages:', mappedMessages);
 

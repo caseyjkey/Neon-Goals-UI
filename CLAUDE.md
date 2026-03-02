@@ -38,18 +38,32 @@ For multi-step tasks, create plans in `thoughts/plans/`:
 
 ### State Management
 
-**Prefer Zustand store subscriptions over `useMemo` for reactivity.**
+Domain-based Zustand stores in `src/store/`:
+
+| Store | Purpose |
+|-------|---------|
+| `useAuthStore` | User, settings, demo mode, login/logout |
+| `useViewStore` | Navigation, sidebar, active category, view mode |
+| `useGoalsStore` | Goals CRUD, subgoals, goal data |
+| `useChatStore` | All chat state, streaming, pending commands |
+| `useFinanceStore` | Plaid accounts, finance goal syncing |
+
+**Usage:**
 
 ```typescript
-// ❌ Avoid: useMemo with version hack
-const { goals, goalsVersion } = useAppStore();
-const goal = useMemo(() => goals.find(g => g.id === id), [goals, id, goalsVersion]);
+// Import specific store
+import { useGoalsStore } from '@/store/useGoalsStore';
 
-// ✅ Prefer: Direct store subscription (only re-renders when this specific data changes)
-const goal = useAppStore(state => state.goals.find(g => g.id === id));
+// Subscribe to specific data (re-renders only when this changes)
+const goal = useGoalsStore(state => state.goals.find(g => g.id === id));
+
+// Access actions
+const { updateGoal, deleteGoal } = useGoalsStore();
+
+// Cross-store access (in actions, not components)
+const goals = useGoalsStore.getState().goals;
 ```
 
-Benefits:
-- Automatic reactivity without manual version tracking
-- More efficient - only re-renders when the specific subscribed data changes
-- Cleaner, more idiomatic Zustand pattern
+**Shared types:** `src/store/types.ts` - ChatCommand, PendingCommandsState, etc.
+
+**Barrel exports:** `src/store/index.ts` for convenient multi-store imports.
