@@ -31,6 +31,20 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const isDemoMode = useAuthStore((state) => state.isDemoMode);
   const location = useLocation();
 
+  // Wait for Zustand persist to rehydrate from localStorage before making auth
+  // decisions. Without this, the first render sees user=null and flashes /login.
+  const [hasHydrated, setHasHydrated] = useState(
+    () => useAuthStore.persist.hasHydrated()
+  );
+
+  useEffect(() => {
+    if (!hasHydrated) {
+      return useAuthStore.persist.onFinishHydration(() => setHasHydrated(true));
+    }
+  }, [hasHydrated]);
+
+  if (!hasHydrated) return null;
+
   // Allow access if user is logged in OR if demo mode is enabled
   if (!user && !isDemoMode) {
     // Redirect to login, preserving the intended destination

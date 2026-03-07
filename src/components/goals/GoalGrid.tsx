@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useRef, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useGoalsStore } from '@/store/useGoalsStore';
@@ -52,26 +52,40 @@ export const GoalGrid: React.FC<GoalGridProps> = ({ className, sortBy = 'created
     }
   }, [shouldAnimate]);
 
-  // Poll for updates when there are active scrapes
+  // Derived boolean — effect only re-runs when this flips, not on every goals update
+  const hasActiveScrapes = goals.some(g =>
+    'statusBadge' in g && (g.statusBadge === 'pending_search' || g.statusBadge === 'pending-search')
+  );
+
+  // Ref persists the start time across re-renders so the 2-min clock doesn't reset each poll
+  const scrapeStartedAt = useRef<number | null>(null);
+
   useEffect(() => {
-    const POLL_INTERVAL = 5000; // Poll every 5 seconds
+    if (!hasActiveScrapes) {
+      scrapeStartedAt.current = null;
+      return;
+    }
 
-    const checkAndRefresh = async () => {
-      // Check if any goals are in searching state
-      const hasActiveScrapes = goals.some(g =>
-        'statusBadge' in g && (g.statusBadge === 'pending_search' || g.statusBadge === 'pending-search')
-      );
+    const POLL_INTERVAL = 5000;
+    const MAX_POLL_MS = 2 * 60 * 1000;
 
-      if (hasActiveScrapes) {
-        console.log('[GoalGrid] Active scrapes detected, refreshing goals...');
-        await fetchGoals();
+    if (scrapeStartedAt.current === null) {
+      scrapeStartedAt.current = Date.now();
+    }
+
+    // Already timed out — don't start another interval
+    if (Date.now() - scrapeStartedAt.current > MAX_POLL_MS) return;
+
+    const interval = setInterval(async () => {
+      if (scrapeStartedAt.current === null || Date.now() - scrapeStartedAt.current > MAX_POLL_MS) {
+        clearInterval(interval);
+        return;
       }
-    };
-
-    const interval = setInterval(checkAndRefresh, POLL_INTERVAL);
+      await fetchGoals();
+    }, POLL_INTERVAL);
 
     return () => clearInterval(interval);
-  }, [goals, fetchGoals]);
+  }, [hasActiveScrapes, fetchGoals]);
 
   const handleViewDetail = (goalId: string) => {
     navigate(`/goals/${goalId}`);

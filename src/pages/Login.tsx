@@ -41,22 +41,32 @@ const Login = () => {
   };
 
   const handleDemoLogin = async () => {
-    // Clear any existing auth token to prevent 401 errors
-    authService.logout();
+    try {
+      // Clear any existing auth token to prevent 401 errors
+      authService.logout();
 
-    // Local-only demo mode - no backend calls
-    const localDemoUser = {
-      id: 'demo-user',
-      name: 'Demo User',
-      email: 'demo@example.com',
-      avatar: undefined,
-    };
+      // Call backend demo endpoint to get a real JWT token
+      const demoUser = await authService.demoLogin();
 
-    setUser(localDemoUser);
-    setDemoMode(true); // Enable demo mode flag
-    // Populate with mock goals
-    mockGoals.forEach(goal => addGoal(goal as any));
-    navigate('/');
+      setUser(demoUser);
+      setDemoMode(true); // Enable demo mode flag for rate limiting awareness
+      // Fetch goals from API (demo user has real data)
+      await fetchGoals();
+      navigate('/');
+    } catch (error) {
+      console.error('Demo login failed:', error);
+      // Fallback to local-only demo mode if backend fails
+      const localDemoUser = {
+        id: 'demo-user',
+        name: 'Demo User',
+        email: 'demo@example.com',
+        avatar: undefined,
+      };
+      setUser(localDemoUser);
+      setDemoMode(true);
+      mockGoals.forEach(goal => addGoal(goal as any));
+      navigate('/');
+    }
   };
 
   const handleAuthSuccess = async (authenticatedUser: any) => {

@@ -1,38 +1,6 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import type { ViewMode, GoalCategory } from '@/types/goals';
-
-// Read initial state from useAppStore's localStorage
-// This keeps the slice in sync with the main store during the migration
-const getInitialState = () => {
-  try {
-    const stored = localStorage.getItem('goals-af-storage');
-    if (stored) {
-      const parsed = JSON.parse(stored);
-      return {
-        viewMode: parsed?.state?.viewMode ?? 'card',
-        currentGoalId: parsed?.state?.currentGoalId ?? null,
-        goalNavigationStack: parsed?.state?.goalNavigationStack ?? [],
-        navigationDirection: parsed?.state?.navigationDirection ?? null,
-        sidebarOpen: parsed?.state?.sidebarOpen ?? true,
-        activeCategory: parsed?.state?.activeCategory ?? 'all',
-        isChatMinimized: parsed?.state?.isChatMinimized ?? false,
-        chatPulseTrigger: parsed?.state?.chatPulseTrigger ?? 0,
-      };
-    }
-  } catch (e) {
-    console.error('Failed to parse stored view state:', e);
-  }
-  return {
-    viewMode: 'card' as ViewMode,
-    currentGoalId: null,
-    goalNavigationStack: [],
-    navigationDirection: null as 'forward' | 'back' | null,
-    sidebarOpen: true,
-    activeCategory: 'all' as GoalCategory,
-    isChatMinimized: false,
-    chatPulseTrigger: 0,
-  };
-};
 
 interface ViewState {
   // State
@@ -60,9 +28,18 @@ interface ViewState {
   triggerChatPulse: () => void;
 }
 
-export const useViewStore = create<ViewState>()((set, get) => ({
-  // Initial state from localStorage (synced with useAppStore)
-  ...getInitialState(),
+export const useViewStore = create<ViewState>()(
+  persist(
+  (set, get) => ({
+  // Default initial state (overridden by persisted values on load)
+  viewMode: 'card' as ViewMode,
+  currentGoalId: null,
+  goalNavigationStack: [],
+  navigationDirection: null as 'forward' | 'back' | null,
+  sidebarOpen: true,
+  activeCategory: 'all' as GoalCategory,
+  isChatMinimized: false,
+  chatPulseTrigger: 0,
 
   // Actions
   setViewMode: (viewMode) => set({ viewMode }),
@@ -139,4 +116,15 @@ export const useViewStore = create<ViewState>()((set, get) => ({
   toggleChatMinimized: () => set((state) => ({ isChatMinimized: !state.isChatMinimized })),
 
   triggerChatPulse: () => set((state) => ({ chatPulseTrigger: state.chatPulseTrigger + 1 })),
-}));
+  }),
+  {
+    name: 'goals-view-storage',
+    // Only persist user preferences — not transient navigation state
+    partialize: (state) => ({
+      viewMode: state.viewMode,
+      activeCategory: state.activeCategory,
+      isChatMinimized: state.isChatMinimized,
+      sidebarOpen: state.sidebarOpen,
+    }),
+  }
+));

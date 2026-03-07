@@ -6,7 +6,6 @@ import { aiGoalCreationService } from '@/services/aiGoalCreationService';
 import { aiOverviewChatService } from '@/services/aiOverviewChatService';
 import { aiGoalChatService } from '@/services/aiGoalChatService';
 import { aiSpecialistChatService } from '@/services/aiSpecialistChatService';
-import { mockOverviewChatService, mockGoalChatService } from '@/services/mockChatService';
 import { goalsService } from '@/services/goalsService';
 import { useGoalsStore } from './useGoalsStore';
 import { useAuthStore } from './useAuthStore';
@@ -71,7 +70,6 @@ const getInitialState = () => {
 };
 
 // Helper to get isDemoMode from useAuthStore
-const getIsDemoMode = (): boolean => useAuthStore.getState().isDemoMode;
 
 // Helper to get goals from useGoalsStore
 const getGoals = (): Goal[] => useGoalsStore.getState().goals;
@@ -221,9 +219,6 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
         }
       } else {
         // Regular chat mode with streaming
-        const isDemo = getIsDemoMode();
-        const chatService = isDemo ? mockOverviewChatService : aiOverviewChatService;
-
         // Create a placeholder assistant message that will be updated as chunks arrive
         const assistantMessageId = (Date.now() + 1).toString();
         const assistantMessage: Message = {
@@ -245,43 +240,7 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
           let fullContent = '';
           let finalChunk: any = {};
 
-          // For demo mode, use non-streaming mock service to avoid generator complexity
-          if (isDemo) {
-            const demoResponse = await mockOverviewChatService.chat(content);
-            set((state) => ({
-              creationChat: {
-                ...state.creationChat,
-                messages: state.creationChat.messages.map(msg =>
-                  msg.id === assistantMessageId
-                    ? { ...msg, content: demoResponse.content }
-                    : msg
-                ),
-                isLoading: false,
-              },
-            }));
-
-            // Execute commands from demo response
-            if (demoResponse.commands.length > 0) {
-              for (const cmd of demoResponse.commands) {
-                if (cmd.type === 'CREATE_GOAL') {
-                  // Create a new goal directly in demo mode
-                  const newGoal = {
-                    ...cmd.data,
-                    id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                    status: 'active',
-                    createdAt: new Date(),
-                  };
-                  goalsStoreActions().addGoal(newGoal);
-                } else if (cmd.type === 'CREATE_SUBGOAL') {
-                  await goalsStoreActions().createSubgoal(cmd.data, cmd.data.parentGoalId || '');
-                }
-              }
-            }
-            return;
-          }
-
-          // Real service: use streaming
-          const streamResult = chatService.chatStream({ message: content });
+          const streamResult = aiOverviewChatService.chatStream({ message: content });
           await (async () => {
             for await (const chunk of streamResult) {
               fullContent += chunk.content;
@@ -339,9 +298,7 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
         } catch (streamError) {
           console.error('Streaming failed, falling back to non-streaming chat:', streamError);
           // Fallback to non-streaming overview chat
-          const chatResponse = isDemo
-            ? await mockOverviewChatService.chat(content)
-            : await aiOverviewChatService.chat({ message: content });
+          const chatResponse = await aiOverviewChatService.chat({ message: content });
 
           set((state) => ({
             creationChat: {
@@ -363,7 +320,7 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
             },
           }));
 
-          if (!isDemo && chatResponse.commands && chatResponse.commands.length > 0) {
+          if (chatResponse.commands && chatResponse.commands.length > 0) {
             set({
               pendingCommands: {
                 chatId: 'creation',
@@ -416,12 +373,7 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
     }));
 
     try {
-      const isDemo = getIsDemoMode();
-      const chatService = isDemo ? mockGoalChatService : aiGoalChatService;
-
-      const response = isDemo
-        ? await mockGoalChatService.chat(goalId, content)
-        : await aiGoalChatService.chat(goalId, { message: content });
+      const response = await aiGoalChatService.chat(goalId, { message: content });
 
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
@@ -484,17 +436,6 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
 
   fetchOverviewChat: async () => {
     try {
-      const isDemo = getIsDemoMode();
-      if (isDemo) {
-        set({
-          overviewChat: {
-            messages: [],
-            isLoading: false,
-          },
-        });
-        return;
-      }
-
       const chat = await chatsService.getOverviewChat() as any;
       set({
         overviewChat: {
@@ -507,6 +448,7 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
             awaitingConfirmation: m.metadata?.awaitingConfirmation,
             proposalType: m.metadata?.proposalType,
             commands: m.metadata?.commands,
+            extraction: m.metadata?.extraction,
           })),
           isLoading: false,
         },
@@ -523,7 +465,6 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
   },
 
   sendOverviewMessage: async (content: string) => {
-    const isDemo = getIsDemoMode();
     const streamId = `overview-${Date.now()}`;
 
     const userMessage: Message = {
@@ -558,47 +499,6 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
     }));
 
     try {
-      if (isDemo) {
-        const response = await mockOverviewChatService.chat(content);
-        set((state) => ({
-          overviewChat: {
-            ...state.overviewChat!,
-            messages: state.overviewChat!.messages.map(msg =>
-              msg.id === assistantMessageId
-                ? {
-                    ...msg,
-                    content: response.content,
-                    goalPreview: (response as any).goalPreview,
-                    awaitingConfirmation: (response as any).awaitingConfirmation,
-                    proposalType: (response as any).proposalType,
-                    commands: response.commands,
-                  }
-                : msg
-            ),
-            isLoading: false,
-          },
-          activeStreams: new Set([...state.activeStreams].filter(id => id !== streamId)),
-        }));
-
-        if (response.commands?.length > 0) {
-          for (const cmd of response.commands) {
-            if (cmd.type === 'CREATE_GOAL') {
-              const newGoal = {
-                ...cmd.data,
-                id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                status: 'active',
-                createdAt: new Date(),
-              };
-              goalsStoreActions().addGoal(newGoal);
-            } else if (cmd.type === 'CREATE_SUBGOAL') {
-              await goalsStoreActions().createSubgoal(cmd.data, cmd.data.parentGoalId || '');
-            }
-          }
-        }
-        return;
-      }
-
-      // Production mode: use streaming service
       let fullContent = '';
       let finalChunk: any = {};
 
@@ -695,20 +595,6 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
 
   fetchCategoryChat: async (categoryId: 'items' | 'finances' | 'actions') => {
     try {
-      const isDemo = getIsDemoMode();
-      if (isDemo) {
-        set((state) => ({
-          categoryChats: {
-            ...state.categoryChats,
-            [categoryId]: {
-              messages: [],
-              isLoading: false,
-            },
-          },
-        }));
-        return;
-      }
-
       const chat = await chatsService.getCategoryChat(categoryId) as any;
       set((state) => ({
         categoryChats: {
@@ -723,6 +609,7 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
               awaitingConfirmation: m.metadata?.awaitingConfirmation,
               proposalType: m.metadata?.proposalType,
               commands: m.metadata?.commands,
+              extraction: m.metadata?.extraction,
             })),
             isLoading: false,
           },
@@ -743,7 +630,6 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
   },
 
   sendCategoryMessage: async (categoryId: 'items' | 'finances' | 'actions', content: string) => {
-    const isDemo = getIsDemoMode();
     const streamId = `${categoryId}-${Date.now()}`;
 
     const userMessage: Message = {
@@ -784,34 +670,6 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
     }));
 
     try {
-      if (isDemo) {
-        const response = await mockOverviewChatService.chat(content);
-        set((state) => ({
-          categoryChats: {
-            ...state.categoryChats,
-            [categoryId]: {
-              ...state.categoryChats[categoryId]!,
-              messages: state.categoryChats[categoryId]!.messages.map(msg =>
-                msg.id === assistantMessageId
-                  ? {
-                      ...msg,
-                      content: response.content,
-                      goalPreview: (response as any).goalPreview,
-                      awaitingConfirmation: (response as any).awaitingConfirmation,
-                      proposalType: (response as any).proposalType,
-                      commands: response.commands,
-                    }
-                  : msg
-              ),
-              isLoading: false,
-            },
-          },
-          activeStreams: new Set([...state.activeStreams].filter(id => id !== streamId)),
-        }));
-        return;
-      }
-
-      // Production mode: use streaming service
       let fullContent = '';
       let finalChunk: any = {};
 
@@ -871,6 +729,7 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
                       awaitingConfirmation: (finalChunk as any).awaitingConfirmation,
                       proposalType: (finalChunk as any).proposalType,
                       commands: finalChunk.commands,
+                      extraction: (finalChunk as any).extraction,
                     }
                   : msg
               ),
@@ -950,21 +809,6 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
 
   fetchGoalChat: async (goalId: string) => {
     try {
-      const isDemo = getIsDemoMode();
-
-      if (isDemo) {
-        set((state) => ({
-          goalChats: {
-            ...state.goalChats,
-            [goalId]: {
-              messages: [],
-              isLoading: false,
-            },
-          },
-        }));
-        return;
-      }
-
       const chat = await chatsService.getGoalChat(goalId) as any;
 
       const mappedMessages = (chat.messages || []).map((m: any) => ({
@@ -976,6 +820,7 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
         awaitingConfirmation: m.metadata?.awaitingConfirmation ?? m.awaitingConfirmation,
         proposalType: m.metadata?.proposalType || m.proposalType,
         commands: m.metadata?.commands || m.commands,
+        extraction: m.metadata?.extraction,
       }));
 
       set((state) => ({
@@ -1041,22 +886,13 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
     const { chatId, commands } = pending;
 
     try {
-      const isDemo = getIsDemoMode();
-      if (!isDemo) {
-        // Production mode: call the appropriate confirm endpoint
-        if (chatId === 'overview' || chatId === 'creation') {
-          await aiOverviewChatService.confirmCommands(commands as any);
-        } else if (chatId?.startsWith('goal-')) {
-          const goalId = chatId.replace('goal-', '');
-          await aiGoalChatService.confirmCommands(goalId, commands);
-        } else if (chatId === 'items' || chatId === 'finances' || chatId === 'actions') {
-          await aiSpecialistChatService.confirmCommands(chatId, commands);
-        }
-      } else {
-        // Demo mode: execute commands locally
-        for (const cmd of commands) {
-          await get().executeChatCommand(cmd);
-        }
+      if (chatId === 'overview' || chatId === 'creation') {
+        await aiOverviewChatService.confirmCommands(commands as any);
+      } else if (chatId?.startsWith('goal-')) {
+        const goalId = chatId.replace('goal-', '');
+        await aiGoalChatService.confirmCommands(goalId, commands);
+      } else if (chatId === 'items' || chatId === 'finances' || chatId === 'actions') {
+        await aiSpecialistChatService.confirmCommands(chatId, commands);
       }
 
       set({ pendingCommands: null });
@@ -1167,13 +1003,10 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
     const { chatId } = pending;
 
     try {
-      const isDemo = getIsDemoMode();
-      if (!isDemo) {
-        if (chatId === 'overview' || chatId === 'creation') {
-          await aiOverviewChatService.cancelCommands(reason);
-        } else if (chatId === 'items' || chatId === 'finances' || chatId === 'actions') {
-          await aiSpecialistChatService.cancelCommands(chatId, reason);
-        }
+      if (chatId === 'overview' || chatId === 'creation') {
+        await aiOverviewChatService.cancelCommands(reason);
+      } else if (chatId === 'items' || chatId === 'finances' || chatId === 'actions') {
+        await aiSpecialistChatService.cancelCommands(chatId, reason);
       }
 
       set({ pendingCommands: null });
@@ -1366,19 +1199,8 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
 
   editMessage: async (chatType: 'overview' | 'category' | 'goal', chatId: string, messageId: string, newContent: string) => {
     try {
-      const isDemo = getIsDemoMode();
-      if (!isDemo) {
-        let targetChatId: string;
-        if (chatType === 'overview') {
-          targetChatId = 'overview';
-        } else if (chatType === 'category') {
-          targetChatId = chatId;
-        } else {
-          targetChatId = chatId;
-        }
-
-        await chatsService.editMessage(targetChatId, messageId, newContent);
-      }
+      const targetChatId = chatType === 'overview' ? 'overview' : chatId;
+      await chatsService.editMessage(targetChatId, messageId, newContent);
 
       // Remove all messages after the edited one
       if (chatType === 'overview') {

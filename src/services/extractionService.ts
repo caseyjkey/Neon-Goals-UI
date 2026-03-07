@@ -50,7 +50,8 @@ export function connectToExtractionStream(
   onError: ExtractionErrorCallback,
 ): { disconnect: () => void } {
   // Include token as query param for SSE auth (EventSource doesn't support headers)
-  const url = `${API_BASE_URL}/extraction/stream/${groupId}${token ? `?token=${encodeURIComponent(token)}` : ''}`;
+  // Note: API_BASE_URL doesn't include /api prefix, so we add it here
+  const url = `${API_BASE_URL}/api/extraction/stream/${groupId}${token ? `?token=${encodeURIComponent(token)}` : ''}`;
 
   const eventSource = new EventSource(url, { withCredentials: true });
 
@@ -98,10 +99,9 @@ export function connectToExtractionStream(
     eventSource.close();
   };
 
-  return {
-    disconnect: () => {
-      eventSource.close();
-    },
+  // Return plain cleanup function (not an object) so callers can invoke directly
+  return () => {
+    eventSource.close();
   };
 }
 
@@ -137,10 +137,13 @@ export async function getExtractionJobStatus(jobId: string): Promise<ExtractionP
 /**
  * Get all jobs in an extraction group
  */
-export async function getExtractionGroupJobs(groupId: string): Promise<ExtractionProgress[]> {
+export async function getExtractionGroupJobs(groupId: string): Promise<any[]> {
   try {
-    return await apiClient.get<ExtractionProgress[]>(`/extraction/jobs/${groupId}`);
-  } catch {
+    const data = await apiClient.get<{ groupId: string; jobs: any[] }>(`/extraction/jobs/${groupId}`);
+    console.log('[extractionService] getExtractionGroupJobs response:', data);
+    return data.jobs || [];
+  } catch (error) {
+    console.error('[extractionService] getExtractionGroupJobs failed:', error);
     return [];
   }
 }

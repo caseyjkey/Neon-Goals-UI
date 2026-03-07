@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Send, X, Sparkles, Minimize2, Maximize2, Check, XCircle, CheckCircle, Edit3 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -8,8 +8,9 @@ import { useViewStore } from '@/store/useViewStore';
 import type { Message, ProposalType, GoalCategory } from '@/types/goals';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { useExtraction, formatExtractionResultsForAI } from '@/hooks/useExtraction';
-import { ExtractionProgressUI } from '@/components/extraction/ExtractionProgress';
+import { formatExtractionResultsForAI } from '@/hooks/useExtraction';
+import { ExtractionMessageCard } from '@/components/extraction/ExtractionMessageCard';
+import type { ExtractionResult } from '@/services/extractionService';
 
 interface ChatPanelProps {
   mode: 'creation' | 'goal';
@@ -156,47 +157,24 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
     return creationChat;
   }, [mode, goalId, activeCategory, goalChats, overviewChat, categoryChats, creationChat]);
 
-  // Extraction hook for handling product URL extraction
-  const extraction = useExtraction();
+  // Track which extraction groups we've already sent follow-ups for (survives re-renders)
+  const followupsSent = useRef<Set<string>>(new Set());
 
-  // Track if we've already sent the follow-up for this extraction
-  const extractionFollowupSent = useRef<string | null>(null);
+  const handleExtractionComplete = useCallback((groupId: string, results: ExtractionResult[]) => {
+    if (followupsSent.current.has(groupId)) return;
+    followupsSent.current.add(groupId);
 
-  // Watch for extraction info in messages and start extraction
-  useEffect(() => {
-    const lastMessage = chat.messages[chat.messages.length - 1];
-    if (lastMessage?.role === 'assistant' && lastMessage.extraction && !extraction.groupId) {
-      const { groupId, urls } = lastMessage.extraction;
-      extraction.startExtraction(groupId, urls);
-    }
-  }, [chat.messages]);
-
-  // Send follow-up message when extraction completes
-  useEffect(() => {
-    if (
-      extraction.isComplete &&
-      extraction.groupId &&
-      extraction.results.length > 0 &&
-      extractionFollowupSent.current !== extraction.groupId
-    ) {
-      // Mark as sent to prevent duplicate messages
-      extractionFollowupSent.current = extraction.groupId;
-
-      // Format results and send to AI
-      const followUpMessage = formatExtractionResultsForAI(extraction.results);
-
-      // Send follow-up to the appropriate chat
-      setTimeout(() => {
-        if (mode === 'goal' && goalId) {
-          sendGoalMessage(goalId, followUpMessage);
-        } else if (activeCategory === 'all') {
-          sendOverviewMessage(followUpMessage);
-        } else if (activeCategory === 'items' || activeCategory === 'finances' || activeCategory === 'actions') {
-          sendCategoryMessage(activeCategory, followUpMessage);
-        }
-      }, 500); // Small delay to ensure UI updates first
-    }
-  }, [extraction.isComplete, extraction.groupId, extraction.results]);
+    const followUpMessage = formatExtractionResultsForAI(results);
+    setTimeout(() => {
+      if (mode === 'goal' && goalId) {
+        sendGoalMessage(goalId, followUpMessage);
+      } else if (activeCategory === 'all') {
+        sendOverviewMessage(followUpMessage);
+      } else if (activeCategory === 'items' || activeCategory === 'finances' || activeCategory === 'actions') {
+        sendCategoryMessage(activeCategory, followUpMessage);
+      }
+    }, 500);
+  }, [mode, goalId, activeCategory, sendGoalMessage, sendOverviewMessage, sendCategoryMessage]);
   const goal = goalId ? goals.find(g => g.id === goalId) : null;
 
   // Memoize persona to prevent infinite re-renders
@@ -411,7 +389,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
               opacity: 0,
               transition: { duration: 0.2 }
             }}
-            className="flex-1 overflow-y-auto p-4 space-y-4 scrollbar-neon min-h-0"
+            className="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-4 scrollbar-neon min-h-0"
           >
             <AnimatePresence mode="popLayout">
               {chat.messages.filter(m => m.content.trim() !== '').map((message) => (
@@ -426,21 +404,10 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                   onDecline={message.awaitingConfirmation && message.proposalType === 'accept_decline' ? () => handleDecline(message.id) : undefined}
                   isExiting={isExitingGoal}
                   isLatestProposal={message.awaitingConfirmation ? isLatestProposal(chatId, message.id) : true}
+                  onExtractionComplete={handleExtractionComplete}
                 />
               ))}
             </AnimatePresence>
-
-            {/* Extraction Progress UI */}
-            {extraction.groupId && (
-              <ExtractionProgressUI
-                urls={extraction.urls}
-                progress={extraction.progress}
-                results={extraction.results}
-                isComplete={extraction.isComplete}
-                isCreatingGoals={extraction.isCreatingGoals}
-                onDismiss={extraction.dismiss}
-              />
-            )}
 
             {chat.isLoading && (
               <motion.div
@@ -546,8 +513,9 @@ const MessageBubble = React.forwardRef<
     onDecline?: () => void;
     isExiting?: boolean;
     isLatestProposal?: boolean;
+    onExtractionComplete?: (groupId: string, results: ExtractionResult[]) => void;
   }
->(({ message, messageId, onConfirm, onEdit, onCancel, onAccept, onDecline, isExiting, isLatestProposal = true }, ref) => {
+>(({ message, messageId, onConfirm, onEdit, onCancel, onAccept, onDecline, isExiting, isLatestProposal = true, onExtractionComplete }, ref) => {
   const isUser = message.role === 'user';
   const hasGoalPreview = message.goalPreview && message.awaitingConfirmation;
   const showProposalButtons = message.awaitingConfirmation;
@@ -693,7 +661,7 @@ const MessageBubble = React.forwardRef<
   }
 
   return (
-    <div className={cn("flex flex-col", isUser ? "items-end" : "items-start")}>
+    <div className={cn("flex flex-col w-full overflow-hidden", isUser ? "items-end" : "items-start")}>
       <motion.div
         ref={ref}
         initial={{ opacity: 0, y: 10 }}
@@ -727,6 +695,14 @@ const MessageBubble = React.forwardRef<
           </p>
         </div>
       </motion.div>
+
+      {/* Inline extraction progress — persists as part of message history */}
+      {!isUser && message.extraction && (
+        <ExtractionMessageCard
+          extraction={message.extraction}
+          onComplete={onExtractionComplete}
+        />
+      )}
 
       {/* Proposal Buttons for messages without goalPreview */}
       {showProposalButtons && !isUser && (

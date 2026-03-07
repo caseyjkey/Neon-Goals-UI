@@ -61,10 +61,6 @@ export const useGoalsStore = create<GoalsState>()((set, get) => ({
 
   // Goal CRUD actions
   fetchGoals: async () => {
-    // Skip API call in demo mode
-    if (useAuthStore.getState().isDemoMode) {
-      return;
-    }
     try {
       set({ isLoading: true, error: null });
       const goals = await goalsService.getAll();
