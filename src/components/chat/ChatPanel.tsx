@@ -56,6 +56,8 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
   const [glowPulse, setGlowPulse] = useState(false);
   const [previousPersona, setPreviousPersona] = useState<{ name: string; emoji: string } | null>(null);
   const hasMounted = React.useRef(false);
+  const navigate = useNavigate();
+  const setActiveCategory = useViewStore((state) => state.setActiveCategory);
 
   const isMinimized = externalIsMinimized || false;
 
