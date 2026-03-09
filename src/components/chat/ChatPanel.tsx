@@ -119,6 +119,42 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
     cancelPendingCommands('Declined');
   };
 
+  // Handle redirect navigation from agent redirect commands
+  const handleRedirectGo = useCallback((redirect: ReturnType<typeof parseRedirectCommand>) => {
+    if (!redirect) return;
+    const { target, label } = redirect;
+
+    if (target.type === 'category') {
+      setActiveCategory(target.categoryId);
+      toast.success(`Switched to ${label}`, {
+        description: 'Click to go back',
+        action: {
+          label: 'Go back',
+          onClick: () => setActiveCategory(activeCategory),
+        },
+        duration: 5000,
+      });
+    } else if (target.type === 'goal') {
+      navigate(`/goals/${target.goalId}`);
+      toast.success(`Switched to ${label}`, {
+        action: {
+          label: 'Go back',
+          onClick: () => navigate('/'),
+        },
+        duration: 5000,
+      });
+    } else if (target.type === 'overview') {
+      setActiveCategory('all');
+      toast.success('Switched to Overview', {
+        action: {
+          label: 'Go back',
+          onClick: () => setActiveCategory(activeCategory),
+        },
+        duration: 5000,
+      });
+    }
+  }, [navigate, setActiveCategory, activeCategory]);
+
   const {
     creationChat,
     goalChats,
