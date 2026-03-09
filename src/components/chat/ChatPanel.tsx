@@ -490,6 +490,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                   isLatestProposal={message.awaitingConfirmation ? isLatestProposal(chatId, message.id) : true}
                   enableLiveExtraction={Boolean(message.extraction?.groupId)}
                   onExtractionComplete={handleExtractionComplete}
+                  onRedirectGo={handleRedirectGo}
                 />
               ))}
             </AnimatePresence>
