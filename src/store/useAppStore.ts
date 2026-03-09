@@ -171,6 +171,12 @@ const defaultChatState: ChatState = {
   isLoading: false,
 };
 
+const toMessageContent = (value: unknown): string => {
+  if (typeof value === 'string') return value;
+  if (value == null) return '';
+  return String(value);
+};
+
 export const useAppStore = create<AppState>()(
   persist(
     (set, get) => ({
@@ -1297,10 +1303,10 @@ export const useAppStore = create<AppState>()(
           const chat = await chatsService.getOverviewChat() as any;
           set({
             overviewChat: {
-              messages: (chat.messages || []).map((m: any) => ({
+              messages: ((chat?.messages as any[]) || []).map((m: any) => ({
                 id: m.id,
-                role: m.role,
-                content: m.content,
+                role: m.role === 'user' ? 'user' : 'assistant',
+                content: toMessageContent(m.content),
                 timestamp: new Date(m.createdAt || m.timestamp),
                 goalPreview: m.metadata?.goalPreview,
                 awaitingConfirmation: m.metadata?.awaitingConfirmation,
@@ -1519,10 +1525,10 @@ export const useAppStore = create<AppState>()(
             categoryChats: {
               ...state.categoryChats,
               [categoryId]: {
-                messages: (chat.messages || []).map((m: any) => ({
+                messages: ((chat?.messages as any[]) || []).map((m: any) => ({
                   id: m.id,
-                  role: m.role,
-                  content: m.content,
+                  role: m.role === 'user' ? 'user' : 'assistant',
+                  content: toMessageContent(m.content),
                   timestamp: new Date(m.createdAt || m.timestamp),
                   goalPreview: m.metadata?.goalPreview,
                   awaitingConfirmation: m.metadata?.awaitingConfirmation,
@@ -1573,10 +1579,10 @@ export const useAppStore = create<AppState>()(
           const chat = await chatsService.getGoalChat(goalId) as any;
           console.log('[fetchGoalChat] Received chat data:', chat);
 
-          const mappedMessages = (chat.messages || []).map((m: any) => ({
+          const mappedMessages = ((chat?.messages as any[]) || []).map((m: any) => ({
             id: m.id,
-            role: m.role,
-            content: m.content,
+            role: m.role === 'user' ? 'user' : 'assistant',
+            content: toMessageContent(m.content),
             timestamp: new Date(m.createdAt || m.timestamp),
             goalPreview: m.metadata?.goalPreview || m.goalPreview,
             awaitingConfirmation: m.metadata?.awaitingConfirmation ?? m.awaitingConfirmation,

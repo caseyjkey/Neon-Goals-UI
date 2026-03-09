@@ -10,6 +10,56 @@ import { goalsService } from '@/services/goalsService';
 import { useGoalsStore } from './useGoalsStore';
 import { useAuthStore } from './useAuthStore';
 
+const normalizeChatState = (chat: any): ChatState => ({
+  messages: Array.isArray(chat?.messages) ? chat.messages : [],
+  isLoading: typeof chat?.isLoading === 'boolean' ? chat.isLoading : false,
+});
+
+const normalizeGoalChats = (goalChats: any): Record<string, ChatState> => {
+  if (!goalChats || typeof goalChats !== 'object') return {};
+
+  return Object.entries(goalChats).reduce((acc, [goalId, chat]) => {
+    acc[goalId] = normalizeChatState(chat);
+    return acc;
+  }, {} as Record<string, ChatState>);
+};
+
+const normalizeCategoryChats = (categoryChats: any) => ({
+  items: categoryChats?.items ? normalizeChatState(categoryChats.items) : null,
+  finances: categoryChats?.finances ? normalizeChatState(categoryChats.finances) : null,
+  actions: categoryChats?.actions ? normalizeChatState(categoryChats.actions) : null,
+});
+
+const normalizePendingCommands = (pending: any): PendingCommandsState | null => {
+  if (!pending || typeof pending !== 'object') return null;
+
+  const chatId = typeof pending.chatId === 'string' ? pending.chatId : '';
+  if (!chatId) return null;
+
+  return {
+    chatId,
+    commands: Array.isArray(pending.commands) ? pending.commands : [],
+    timestamp: typeof pending.timestamp === 'number' ? pending.timestamp : Date.now(),
+  };
+};
+
+const toMessageContent = (value: unknown): string => {
+  if (typeof value === 'string') return value;
+  if (value == null) return '';
+  return String(value);
+};
+
+const normalizeExtraction = (value: any) => {
+  if (!value || typeof value !== 'object') return undefined;
+  if (typeof value.groupId !== 'string' || !value.groupId) return undefined;
+
+  return {
+    groupId: value.groupId,
+    urls: Array.isArray(value.urls) ? value.urls.filter((u: unknown): u is string => typeof u === 'string') : [],
+    streamUrl: typeof value.streamUrl === 'string' ? value.streamUrl : '',
+  };
+};
+
 // Read initial state from useAppStore's localStorage
 // This keeps the slice in sync with the main store during the migration
 const getInitialState = () => {
@@ -18,7 +68,9 @@ const getInitialState = () => {
     if (stored) {
       const parsed = JSON.parse(stored);
       return {
-        creationChat: parsed?.state?.creationChat ?? {
+        creationChat: parsed?.state?.creationChat
+          ? normalizeChatState(parsed.state.creationChat)
+          : {
           messages: [{
             id: '1',
             role: 'assistant',
@@ -27,18 +79,15 @@ const getInitialState = () => {
           }],
           isLoading: false,
         },
-        goalChats: parsed?.state?.goalChats ?? {},
-        overviewChat: parsed?.state?.overviewChat ?? null,
-        categoryChats: parsed?.state?.categoryChats ?? {
-          items: null,
-          finances: null,
-          actions: null,
-        },
+        goalChats: normalizeGoalChats(parsed?.state?.goalChats),
+        overviewChat: parsed?.state?.overviewChat ? normalizeChatState(parsed.state.overviewChat) : null,
+        categoryChats: normalizeCategoryChats(parsed?.state?.categoryChats),
         isCreatingGoal: parsed?.state?.isCreatingGoal ?? false,
-        pendingCommands: parsed?.state?.pendingCommands ?? null,
-        handledProposals: parsed?.state?.handledProposals ?? new Set<string>(),
-        latestProposalMessageIds: parsed?.state?.latestProposalMessageIds ?? {},
+        pendingCommands: null,
+        handledProposals: new Set<string>(),
+        latestProposalMessageIds: {},
         activeStreams: parsed?.state?.activeStreams ?? new Set<string>(),
+        activeExtractionGroups: new Set<string>(),
       };
     }
   } catch (e) {
@@ -66,6 +115,7 @@ const getInitialState = () => {
     handledProposals: new Set<string>(),
     latestProposalMessageIds: {} as Record<string, string | null>,
     activeStreams: new Set<string>(),
+    activeExtractionGroups: new Set<string>(),
   };
 };
 
@@ -92,6 +142,7 @@ interface ChatStoreState {
   handledProposals: Set<string>;
   latestProposalMessageIds: Record<string, string | null>;
   activeStreams: Set<string>;
+  activeExtractionGroups: Set<string>;
 
   // Chat CRUD actions
   sendCreationMessage: (content: string) => Promise<void>;
@@ -126,6 +177,8 @@ interface ChatStoreState {
   // Stream management actions
   setActiveStream: (streamId: string, active: boolean) => void;
   isStreamActive: (streamId: string) => boolean;
+  setExtractionActive: (groupId: string, active: boolean) => void;
+  isExtractionActive: (groupId: string) => boolean;
 
   // Goal creation actions
   startGoalCreation: () => void;
@@ -439,16 +492,16 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
       const chat = await chatsService.getOverviewChat() as any;
       set({
         overviewChat: {
-          messages: (chat.messages || []).map((m: any) => ({
+          messages: ((chat?.messages as any[]) || []).map((m: any) => ({
             id: m.id,
-            role: m.role,
-            content: m.content,
+            role: m.role === 'user' ? 'user' : 'assistant',
+            content: toMessageContent(m.content),
             timestamp: new Date(m.createdAt || m.timestamp),
             goalPreview: m.metadata?.goalPreview,
             awaitingConfirmation: m.metadata?.awaitingConfirmation,
             proposalType: m.metadata?.proposalType,
             commands: m.metadata?.commands,
-            extraction: m.metadata?.extraction,
+            extraction: normalizeExtraction(m.metadata?.extraction),
           })),
           isLoading: false,
         },
@@ -536,6 +589,11 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
       }));
 
       // Handle commands from response
+      const overviewExtractionGroupId = (finalChunk as any)?.extraction?.groupId;
+      if (typeof overviewExtractionGroupId === 'string' && overviewExtractionGroupId) {
+        get().setExtractionActive(overviewExtractionGroupId, true);
+      }
+
       if (finalChunk.awaitingConfirmation && finalChunk.commands?.length > 0) {
         set({
           pendingCommands: {
@@ -600,16 +658,16 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
         categoryChats: {
           ...state.categoryChats,
           [categoryId]: {
-            messages: (chat.messages || []).map((m: any) => ({
+            messages: ((chat?.messages as any[]) || []).map((m: any) => ({
               id: m.id,
-              role: m.role,
-              content: m.content,
+              role: m.role === 'user' ? 'user' : 'assistant',
+              content: toMessageContent(m.content),
               timestamp: new Date(m.createdAt || m.timestamp),
               goalPreview: m.metadata?.goalPreview,
               awaitingConfirmation: m.metadata?.awaitingConfirmation,
               proposalType: m.metadata?.proposalType,
               commands: m.metadata?.commands,
-              extraction: m.metadata?.extraction,
+              extraction: normalizeExtraction(m.metadata?.extraction),
             })),
             isLoading: false,
           },
@@ -744,6 +802,11 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
       }));
 
       // Handle commands from response
+      const categoryExtractionGroupId = (finalChunk as any)?.extraction?.groupId;
+      if (typeof categoryExtractionGroupId === 'string' && categoryExtractionGroupId) {
+        get().setExtractionActive(categoryExtractionGroupId, true);
+      }
+
       if (finalChunk.awaitingConfirmation && finalChunk.commands?.length > 0) {
         set({
           pendingCommands: {
@@ -811,16 +874,16 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
     try {
       const chat = await chatsService.getGoalChat(goalId) as any;
 
-      const mappedMessages = (chat.messages || []).map((m: any) => ({
+      const mappedMessages = ((chat?.messages as any[]) || []).map((m: any) => ({
         id: m.id,
-        role: m.role,
-        content: m.content,
+        role: m.role === 'user' ? 'user' : 'assistant',
+        content: toMessageContent(m.content),
         timestamp: new Date(m.createdAt || m.timestamp),
         goalPreview: m.metadata?.goalPreview || m.goalPreview,
         awaitingConfirmation: m.metadata?.awaitingConfirmation ?? m.awaitingConfirmation,
         proposalType: m.metadata?.proposalType || m.proposalType,
         commands: m.metadata?.commands || m.commands,
-        extraction: m.metadata?.extraction,
+        extraction: normalizeExtraction(m.metadata?.extraction),
       }));
 
       set((state) => ({
@@ -1090,6 +1153,24 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
 
   isStreamActive: (streamId: string) => {
     return get().activeStreams.has(streamId);
+  },
+
+  setExtractionActive: (groupId: string, active: boolean) => {
+    if (!groupId) return;
+    set((state) => {
+      const next = new Set(state.activeExtractionGroups);
+      if (active) {
+        next.add(groupId);
+      } else {
+        next.delete(groupId);
+      }
+      return { activeExtractionGroups: next };
+    });
+  },
+
+  isExtractionActive: (groupId: string) => {
+    if (!groupId) return false;
+    return get().activeExtractionGroups.has(groupId);
   },
 
   // ========== Goal Creation Actions ==========

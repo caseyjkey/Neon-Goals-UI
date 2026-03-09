@@ -15,6 +15,28 @@ export interface ExtractionProgress {
   url?: string;
 }
 
+/**
+ * Map backend status values to UI-expected values
+ */
+function mapStatus(status: string): ExtractionProgress['status'] {
+  switch (status) {
+    case 'running':
+    case 'in_progress':
+      return 'in_progress';
+    case 'pending':
+    case 'started':
+      return 'started';
+    case 'completed':
+    case 'complete':
+      return 'complete';
+    case 'failed':
+    case 'error':
+      return 'error';
+    default:
+      return 'started';
+  }
+}
+
 export interface ExtractionResult {
   success: boolean;
   name?: string;
@@ -80,10 +102,10 @@ export function connectToExtractionStream(
         }
         onComplete(results);
       } else {
-        // Progress update
+        // Progress update - map backend status to UI-expected values
         onProgress({
           jobId: data.jobId,
-          status: data.status,
+          status: mapStatus(data.status),
           message: data.message,
           url: data.url,
         });

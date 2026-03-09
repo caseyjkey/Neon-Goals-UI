@@ -45,6 +45,9 @@ export function useExtraction() {
 
   // Start extraction for a group of URLs
   const startExtraction = useCallback(async (groupId: string, urls: string[]) => {
+    if (!groupId) return;
+    const safeUrls = Array.isArray(urls) ? urls : [];
+
     // Disconnect any existing stream and stop polling
     if (disconnectRef.current) {
       disconnectRef.current();
@@ -54,7 +57,7 @@ export function useExtraction() {
 
     setState({
       groupId,
-      urls,
+      urls: safeUrls,
       progress: new Map(),
       results: [],
       isComplete: false,
@@ -97,10 +100,35 @@ export function useExtraction() {
         }
 
         // Some jobs are still pending/running - show progress and connect to SSE
+        // Map backend status values to UI-expected values
+        const mapStatus = (status: string): ExtractionProgress['status'] => {
+          switch (status) {
+            case 'running':
+            case 'in_progress':
+              return 'in_progress';
+            case 'pending':
+            case 'started':
+              return 'started';
+            case 'completed':
+            case 'complete':
+              return 'complete';
+            case 'failed':
+            case 'error':
+              return 'error';
+            default:
+              return 'started';
+          }
+        };
+
         const progressMap = new Map<string, ExtractionProgress>();
         for (const job of jobs) {
-          if (job.status === 'running' || job.status === 'pending') {
-            progressMap.set(job.id, job);
+          if (job.status === 'running' || job.status === 'pending' || job.status === 'in_progress' || job.status === 'started') {
+            progressMap.set(job.id, {
+              jobId: job.id,
+              status: mapStatus(job.status),
+              message: job.message || 'Processing...',
+              url: job.url,
+            });
           }
         }
         if (progressMap.size > 0) {
@@ -187,12 +215,32 @@ export function useExtraction() {
           });
         } else {
           // Update progress for in-flight jobs
+          // Map backend status values to UI-expected values
+          const mapStatus = (status: string): ExtractionProgress['status'] => {
+            switch (status) {
+              case 'running':
+              case 'in_progress':
+                return 'in_progress';
+              case 'pending':
+              case 'started':
+                return 'started';
+              case 'completed':
+              case 'complete':
+                return 'complete';
+              case 'failed':
+              case 'error':
+                return 'error';
+              default:
+                return 'started';
+            }
+          };
+
           const progressMap = new Map<string, ExtractionProgress>();
           for (const job of jobs) {
-            if (job.status === 'running' || job.status === 'pending') {
+            if (job.status === 'running' || job.status === 'pending' || job.status === 'in_progress' || job.status === 'started') {
               progressMap.set(job.id, {
                 jobId: job.id,
-                status: job.status,
+                status: mapStatus(job.status),
                 message: job.message || 'Processing...',
                 url: job.url,
               });

@@ -22,8 +22,13 @@ export const OverviewChatPage = () => {
     isStreamActive,
   } = useChatStore();
 
-  const streamId = `overview-${overviewChat?.messages[overviewChat.messages.length - 1]?.id || 'latest'}`;
-  const isStreaming = overviewChat?.isLoading || isStreamActive(streamId);
+  const messages = (Array.isArray(overviewChat?.messages) ? overviewChat.messages : []).map((m) => ({
+    ...m,
+    content: typeof m?.content === 'string' ? m.content : m?.content == null ? '' : String(m.content),
+  }));
+  const pendingCount = Array.isArray(pendingCommands?.commands) ? pendingCommands.commands.length : 0;
+  const streamId = `overview-${messages[messages.length - 1]?.id || 'latest'}`;
+  const isStreaming = Boolean(overviewChat?.isLoading) || isStreamActive(streamId);
 
   // Fetch chat on mount
   useEffect(() => {
@@ -35,7 +40,7 @@ export const OverviewChatPage = () => {
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [overviewChat?.messages]);
+  }, [messages]);
 
   const handleSend = async () => {
     if (!input.trim() || isStreaming) return;
@@ -78,7 +83,7 @@ export const OverviewChatPage = () => {
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {overviewChat?.messages.length === 0 ? (
+        {messages.length === 0 ? (
           <div className="flex items-center justify-center h-full">
             <div className="text-center">
               <div className="text-4xl mb-2">🌴</div>
@@ -90,7 +95,7 @@ export const OverviewChatPage = () => {
           </div>
         ) : (
           <AnimatePresence mode="popLayout">
-            {overviewChat?.messages.map((message, index) => (
+            {messages.map((message, index) => (
               <motion.div
                 key={message.id}
                 initial={{ opacity: 0, y: 20 }}
@@ -138,7 +143,7 @@ export const OverviewChatPage = () => {
         )}
 
         {/* Pending Commands */}
-        {pendingCommands?.chatId === 'overview' && (
+        {pendingCommands?.chatId === 'overview' && pendingCount > 0 && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -148,10 +153,10 @@ export const OverviewChatPage = () => {
               <Sparkles className="text-amber-400 mt-0.5" size={18} />
               <div className="flex-1">
                 <p className="text-amber-200 font-medium mb-1">
-                  {pendingCommands.commands.length} command{pendingCommands.commands.length > 1 ? 's' : ''} pending
+                  {pendingCount} command{pendingCount > 1 ? 's' : ''} pending
                 </p>
                 <p className="text-sm text-slate-300 mb-3">
-                  {pendingCommands.commands.map((cmd, i) => (
+                  {(pendingCommands.commands || []).map((cmd, i) => (
                     <span key={i} className="block">
                       • {cmd.type.replace(/_/g, ' ')}: {cmd.data.title || cmd.data.taskId || cmd.data.goalId}
                     </span>

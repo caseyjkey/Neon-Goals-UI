@@ -12,6 +12,18 @@ import { formatExtractionResultsForAI } from '@/hooks/useExtraction';
 import { ExtractionMessageCard } from '@/components/extraction/ExtractionMessageCard';
 import type { ExtractionResult } from '@/services/extractionService';
 
+const toSafeText = (value: unknown): string => (typeof value === 'string' ? value : value == null ? '' : String(value));
+const normalizeExtraction = (value: any) => {
+  if (!value || typeof value !== 'object') return undefined;
+  if (typeof value.groupId !== 'string' || !value.groupId) return undefined;
+
+  return {
+    groupId: value.groupId,
+    urls: Array.isArray(value.urls) ? value.urls.filter((u: unknown): u is string => typeof u === 'string') : [],
+    streamUrl: typeof value.streamUrl === 'string' ? value.streamUrl : '',
+  };
+};
+
 interface ChatPanelProps {
   mode: 'creation' | 'goal';
   goalId?: string;
@@ -118,6 +130,8 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
     addAssistantMessage,
     markProposalHandled,
     isLatestProposal,
+    isExtractionActive,
+    setExtractionActive,
     fetchOverviewChat,
     fetchCategoryChat,
     fetchGoalChat,
@@ -136,25 +150,30 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
   // For creation mode, use overviewChat (all) or categoryChats (items/finances/actions)
   // For goal mode, use goalChats
   const chat = useMemo(() => {
+    const normalizeChat = (chatState: any) => ({
+      messages: Array.isArray(chatState?.messages) ? chatState.messages : [],
+      isLoading: Boolean(chatState?.isLoading),
+    });
+
     if (mode === 'goal') {
-      const goalChat = goalChats[goalId || ''] || { messages: [], isLoading: false };
+      const goalChat = normalizeChat(goalChats[goalId || '']);
       console.log('[ChatPanel] goal chat for', goalId, ':', goalChat);
       return goalChat;
     }
     // Creation mode - use specialist chats
     if (activeCategory === 'all') {
-      return overviewChat || { messages: [], isLoading: false };
+      return normalizeChat(overviewChat);
     }
     if (activeCategory === 'items') {
-      return categoryChats.items || { messages: [], isLoading: false };
+      return normalizeChat(categoryChats.items);
     }
     if (activeCategory === 'finances') {
-      return categoryChats.finances || { messages: [], isLoading: false };
+      return normalizeChat(categoryChats.finances);
     }
     if (activeCategory === 'actions') {
-      return categoryChats.actions || { messages: [], isLoading: false };
+      return normalizeChat(categoryChats.actions);
     }
-    return creationChat;
+    return normalizeChat(creationChat);
   }, [mode, goalId, activeCategory, goalChats, overviewChat, categoryChats, creationChat]);
 
   // Track which extraction groups we've already sent follow-ups for (survives re-renders)
@@ -163,6 +182,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
   const handleExtractionComplete = useCallback((groupId: string, results: ExtractionResult[]) => {
     if (followupsSent.current.has(groupId)) return;
     followupsSent.current.add(groupId);
+    setExtractionActive(groupId, false);
 
     const followUpMessage = formatExtractionResultsForAI(results);
     setTimeout(() => {
@@ -174,7 +194,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
         sendCategoryMessage(activeCategory, followUpMessage);
       }
     }, 500);
-  }, [mode, goalId, activeCategory, sendGoalMessage, sendOverviewMessage, sendCategoryMessage]);
+  }, [mode, goalId, activeCategory, sendGoalMessage, sendOverviewMessage, sendCategoryMessage, setExtractionActive]);
   const goal = goalId ? goals.find(g => g.id === goalId) : null;
 
   // Memoize persona to prevent infinite re-renders
@@ -392,7 +412,16 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
             className="flex-1 overflow-y-auto overflow-x-hidden p-4 space-y-4 scrollbar-neon min-h-0"
           >
             <AnimatePresence mode="popLayout">
-              {chat.messages.filter(m => m.content.trim() !== '').map((message) => (
+              {chat.messages
+                .filter((m): m is Message => Boolean(m))
+                .map((m) => ({
+                  ...m,
+                  content: toSafeText(m.content),
+                  goalPreview: toSafeText(m.goalPreview),
+                  extraction: normalizeExtraction(m.extraction),
+                }))
+                .filter((m) => m.content.trim() !== '')
+                .map((message) => (
                 <MessageBubble
                   key={message.id}
                   message={message}
@@ -404,6 +433,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                   onDecline={message.awaitingConfirmation && message.proposalType === 'accept_decline' ? () => handleDecline(message.id) : undefined}
                   isExiting={isExitingGoal}
                   isLatestProposal={message.awaitingConfirmation ? isLatestProposal(chatId, message.id) : true}
+                  enableLiveExtraction={Boolean(message.extraction?.groupId)}
                   onExtractionComplete={handleExtractionComplete}
                 />
               ))}
@@ -513,9 +543,10 @@ const MessageBubble = React.forwardRef<
     onDecline?: () => void;
     isExiting?: boolean;
     isLatestProposal?: boolean;
+    enableLiveExtraction?: boolean;
     onExtractionComplete?: (groupId: string, results: ExtractionResult[]) => void;
   }
->(({ message, messageId, onConfirm, onEdit, onCancel, onAccept, onDecline, isExiting, isLatestProposal = true, onExtractionComplete }, ref) => {
+>(({ message, messageId, onConfirm, onEdit, onCancel, onAccept, onDecline, isExiting, isLatestProposal = true, enableLiveExtraction = false, onExtractionComplete }, ref) => {
   const isUser = message.role === 'user';
   const hasGoalPreview = message.goalPreview && message.awaitingConfirmation;
   const showProposalButtons = message.awaitingConfirmation;
@@ -548,6 +579,9 @@ const MessageBubble = React.forwardRef<
           </div>
 
           {/* Proposal Buttons - render based on which handlers are provided */}
+          {showProposalButtons && buttonsDisabled && (
+            <p className="text-xs text-muted-foreground">Decision recorded</p>
+          )}
           <div className="flex flex-col lg:flex-row lg:justify-end gap-2">
             {/* Confirm/Edit/Cancel Buttons */}
             {onConfirm && onEdit && onCancel && (
@@ -700,6 +734,7 @@ const MessageBubble = React.forwardRef<
       {!isUser && message.extraction && (
         <ExtractionMessageCard
           extraction={message.extraction}
+          enableLiveTracking={enableLiveExtraction}
           onComplete={onExtractionComplete}
         />
       )}
@@ -707,6 +742,9 @@ const MessageBubble = React.forwardRef<
       {/* Proposal Buttons for messages without goalPreview */}
       {showProposalButtons && !isUser && (
         <div className="flex flex-col lg:flex-row lg:justify-start gap-2 mt-2">
+          {buttonsDisabled && (
+            <p className="w-full text-xs text-muted-foreground">Decision recorded</p>
+          )}
           {/* Confirm/Edit/Cancel Buttons */}
           {onConfirm && onEdit && onCancel && (
             <>

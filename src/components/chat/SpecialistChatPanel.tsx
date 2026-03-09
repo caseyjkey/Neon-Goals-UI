@@ -59,8 +59,13 @@ export const SpecialistChatPanel: React.FC<SpecialistChatPanelProps> = ({
   } = useChatStore();
 
   const chat = categoryChats[categoryId] || { messages: [], isLoading: false };
+  const messages = (Array.isArray(chat.messages) ? chat.messages : []).map((m) => ({
+    ...m,
+    content: typeof m?.content === 'string' ? m.content : m?.content == null ? '' : String(m.content),
+  }));
+  const pendingCount = Array.isArray(pendingCommands?.commands) ? pendingCommands.commands.length : 0;
   const config = SPECIALIST_CONFIG[categoryId];
-  const streamId = `${categoryId}-${chat.messages[chat.messages.length - 1]?.id || 'latest'}`;
+  const streamId = `${categoryId}-${messages[messages.length - 1]?.id || 'latest'}`;
   const isStreaming = chat.isLoading || isStreamActive(streamId);
 
   // Fetch chat on mount
@@ -73,7 +78,7 @@ export const SpecialistChatPanel: React.FC<SpecialistChatPanelProps> = ({
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [chat.messages]);
+  }, [messages]);
 
   const handleSend = async () => {
     if (!input.trim() || isStreaming) return;
@@ -119,7 +124,7 @@ export const SpecialistChatPanel: React.FC<SpecialistChatPanelProps> = ({
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {chat.messages.length === 0 ? (
+        {messages.length === 0 ? (
           <div className="flex items-center justify-center h-full">
             <div className="text-center">
               <div className="text-4xl mb-2">{config.icon}</div>
@@ -133,7 +138,7 @@ export const SpecialistChatPanel: React.FC<SpecialistChatPanelProps> = ({
           </div>
         ) : (
           <AnimatePresence mode="popLayout">
-            {chat.messages.map((message, index) => (
+            {messages.map((message, index) => (
               <motion.div
                 key={message.id}
                 initial={{ opacity: 0, y: 20 }}
@@ -181,7 +186,7 @@ export const SpecialistChatPanel: React.FC<SpecialistChatPanelProps> = ({
         )}
 
         {/* Pending Commands */}
-        {pendingCommands?.chatId === categoryId && (
+        {pendingCommands?.chatId === categoryId && pendingCount > 0 && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -191,10 +196,10 @@ export const SpecialistChatPanel: React.FC<SpecialistChatPanelProps> = ({
               <Sparkles className="text-amber-400 mt-0.5" size={18} />
               <div className="flex-1">
                 <p className="text-amber-200 font-medium mb-1">
-                  {pendingCommands.commands.length} command{pendingCommands.commands.length > 1 ? 's' : ''} pending
+                  {pendingCount} command{pendingCount > 1 ? 's' : ''} pending
                 </p>
                 <p className="text-sm text-slate-300 mb-3">
-                  {pendingCommands.commands.map((cmd, i) => (
+                  {(pendingCommands.commands || []).map((cmd, i) => (
                     <span key={i} className="block">
                       • {cmd.type.replace(/_/g, ' ')}: {cmd.data.title || cmd.data.taskId || cmd.data.goalId}
                     </span>
