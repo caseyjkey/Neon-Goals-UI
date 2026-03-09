@@ -1,10 +1,12 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, X, Sparkles, Minimize2, Maximize2, Check, XCircle, CheckCircle, Edit3 } from 'lucide-react';
+import { Send, X, Sparkles, Minimize2, Maximize2, Check, XCircle, CheckCircle, Edit3, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useChatStore } from '@/store/useChatStore';
 import { useGoalsStore } from '@/store/useGoalsStore';
 import { useViewStore } from '@/store/useViewStore';
+import { useBillingStore } from '@/store/useBillingStore';
+import { isMessageLimitReached, getUsagePercent } from '@/types/billing';
 import type { Message, ProposalType, GoalCategory } from '@/types/goals';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -300,9 +302,20 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
     }
   }, []); // Only run once on mount
 
+  const { usage, openUpgrade } = useBillingStore();
+  const usagePercent = getUsagePercent(usage);
+  const limitReached = isMessageLimitReached(usage);
+  const isNearLimit = usagePercent >= 70 && !limitReached;
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || chat.isLoading) return;
+
+    // Entitlement gate: block if message limit reached
+    if (limitReached) {
+      openUpgrade('chat_limit_reached');
+      return;
+    }
 
     if (mode === 'goal' && goalId) {
       sendGoalMessage(goalId, input.trim());
