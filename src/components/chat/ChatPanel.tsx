@@ -1,16 +1,22 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, X, Sparkles, Minimize2, Maximize2, Check, XCircle, CheckCircle, Edit3 } from 'lucide-react';
+import { Send, X, Sparkles, Minimize2, Maximize2, Check, XCircle, CheckCircle, Edit3, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useChatStore } from '@/store/useChatStore';
 import { useGoalsStore } from '@/store/useGoalsStore';
 import { useViewStore } from '@/store/useViewStore';
+import { useBillingStore } from '@/store/useBillingStore';
+import { isMessageLimitReached, getUsagePercent } from '@/types/billing';
 import type { Message, ProposalType, GoalCategory } from '@/types/goals';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { formatExtractionResultsForAI } from '@/hooks/useExtraction';
 import { ExtractionMessageCard } from '@/components/extraction/ExtractionMessageCard';
 import type { ExtractionResult } from '@/services/extractionService';
+import { parseRedirectCommand, stripRedirectCommand } from '@/lib/redirectParser';
+import { RedirectCard } from '@/components/chat/RedirectCard';
+import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 
 const toSafeText = (value: unknown): string => (typeof value === 'string' ? value : value == null ? '' : String(value));
 const normalizeExtraction = (value: any) => {
@@ -50,6 +56,8 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
   const [glowPulse, setGlowPulse] = useState(false);
   const [previousPersona, setPreviousPersona] = useState<{ name: string; emoji: string } | null>(null);
   const hasMounted = React.useRef(false);
+  const navigate = useNavigate();
+  const setActiveCategory = useViewStore((state) => state.setActiveCategory);
 
   const isMinimized = externalIsMinimized || false;
 
@@ -110,6 +118,42 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
     // Decline works like cancel - rejects the proposal
     cancelPendingCommands('Declined');
   };
+
+  // Handle redirect navigation from agent redirect commands
+  const handleRedirectGo = useCallback((redirect: ReturnType<typeof parseRedirectCommand>) => {
+    if (!redirect) return;
+    const { target, label } = redirect;
+
+    if (target.type === 'category') {
+      setActiveCategory(target.categoryId);
+      toast.success(`Switched to ${label}`, {
+        description: 'Click to go back',
+        action: {
+          label: 'Go back',
+          onClick: () => setActiveCategory(activeCategory),
+        },
+        duration: 5000,
+      });
+    } else if (target.type === 'goal') {
+      navigate(`/goals/${target.goalId}`);
+      toast.success(`Switched to ${label}`, {
+        action: {
+          label: 'Go back',
+          onClick: () => navigate('/'),
+        },
+        duration: 5000,
+      });
+    } else if (target.type === 'overview') {
+      setActiveCategory('all');
+      toast.success('Switched to Overview', {
+        action: {
+          label: 'Go back',
+          onClick: () => setActiveCategory(activeCategory),
+        },
+        duration: 5000,
+      });
+    }
+  }, [navigate, setActiveCategory, activeCategory]);
 
   const {
     creationChat,
@@ -300,9 +344,20 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
     }
   }, []); // Only run once on mount
 
+  const { usage, openUpgrade } = useBillingStore();
+  const usagePercent = getUsagePercent(usage);
+  const limitReached = isMessageLimitReached(usage);
+  const isNearLimit = usagePercent >= 70 && !limitReached;
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || chat.isLoading) return;
+
+    // Entitlement gate: block if message limit reached
+    if (limitReached) {
+      openUpgrade('chat_limit_reached');
+      return;
+    }
 
     if (mode === 'goal' && goalId) {
       sendGoalMessage(goalId, input.trim());
@@ -435,6 +490,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                   isLatestProposal={message.awaitingConfirmation ? isLatestProposal(chatId, message.id) : true}
                   enableLiveExtraction={Boolean(message.extraction?.groupId)}
                   onExtractionComplete={handleExtractionComplete}
+                  onRedirectGo={handleRedirectGo}
                 />
               ))}
             </AnimatePresence>
@@ -483,6 +539,22 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
       {/* Input */}
       {!isMinimized && (
         <form onSubmit={handleSubmit} className="p-4 border-t border-border/50">
+          {/* Usage chip */}
+          {usage && (isNearLimit || limitReached) && (
+            <div className={cn(
+              "flex items-center justify-between px-3 py-1.5 rounded-lg text-xs mb-2",
+              limitReached ? "bg-destructive/15 text-destructive border border-destructive/30" : "bg-warning/10 text-warning border border-warning/20"
+            )}>
+              <span>
+                {limitReached
+                  ? `Message limit reached (${usage.messagesUsed}/${usage.monthlyMessageLimit})`
+                  : `${usage.messagesUsed}/${usage.monthlyMessageLimit} messages used`}
+              </span>
+              <button type="button" onClick={() => openUpgrade('chat_limit_reached')} className="flex items-center gap-1 font-semibold hover:opacity-80">
+                <Zap className="w-3 h-3" /> Upgrade
+              </button>
+            </div>
+          )}
           <div className="flex items-center gap-2">
             <motion.div
               animate={glowPulse ? {
@@ -507,17 +579,17 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder="Ask me anything..."
+                placeholder={limitReached ? "Upgrade to keep chatting..." : "Ask me anything..."}
                 className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none"
                 disabled={chat.isLoading}
               />
             </motion.div>
             <button
               type="submit"
-              disabled={!input.trim() || chat.isLoading}
+              disabled={!input.trim() || chat.isLoading || limitReached}
               className={cn(
                 "p-3 rounded-xl transition-all",
-                input.trim() && !chat.isLoading
+                input.trim() && !chat.isLoading && !limitReached
                   ? "bg-gradient-neon text-primary-foreground neon-glow-cyan hover:scale-105"
                   : "bg-muted text-muted-foreground cursor-not-allowed"
               )}
@@ -545,11 +617,14 @@ const MessageBubble = React.forwardRef<
     isLatestProposal?: boolean;
     enableLiveExtraction?: boolean;
     onExtractionComplete?: (groupId: string, results: ExtractionResult[]) => void;
+    onRedirectGo?: (redirect: ReturnType<typeof parseRedirectCommand>) => void;
   }
->(({ message, messageId, onConfirm, onEdit, onCancel, onAccept, onDecline, isExiting, isLatestProposal = true, enableLiveExtraction = false, onExtractionComplete }, ref) => {
+>(({ message, messageId, onConfirm, onEdit, onCancel, onAccept, onDecline, isExiting, isLatestProposal = true, enableLiveExtraction = false, onExtractionComplete, onRedirectGo }, ref) => {
   const isUser = message.role === 'user';
   const hasGoalPreview = message.goalPreview && message.awaitingConfirmation;
   const showProposalButtons = message.awaitingConfirmation;
+  const redirect = !isUser ? parseRedirectCommand(message.content) : null;
+  const displayContent = redirect ? stripRedirectCommand(message.content) : message.content;
   // Get isProposalHandled from store
   const { isProposalHandled } = useChatStore();
   const isHandled = messageId ? isProposalHandled(messageId) : false;
@@ -570,7 +645,7 @@ const MessageBubble = React.forwardRef<
         <div className="max-w-[85%] min-w-0 space-y-3 break-words [overflow-wrap:anywhere]">
           {/* Main message */}
           <div className="px-4 py-3 rounded-2xl bg-muted/50 text-white rounded-tl-sm border border-border/30 prose prose-sm dark:prose-invert prose-p:text-white prose-li:text-white prose-strong:text-white prose-h1:text-white prose-h2:text-white prose-h3:text-white prose-h4:text-white prose-code:text-white prose-pre:text-white prose-pre-code:text-white max-w-none [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-4 [&_li]:my-1 [&_code]:bg-white/10 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_pre]:bg-white/10 [&_pre]:px-3 [&_pre]:py-2 [&_pre]:rounded-lg [&_pre]:overflow-x-auto [&_pre]:max-w-full [&_pre_code]:whitespace-pre-wrap [&_pre_code]:break-words">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>{displayContent}</ReactMarkdown>
           </div>
 
           {/* Markdown Preview Card */}
@@ -718,7 +793,7 @@ const MessageBubble = React.forwardRef<
             <p className="text-sm whitespace-pre-wrap leading-relaxed break-words [overflow-wrap:anywhere]">{message.content}</p>
           ) : (
             <div className="prose prose-sm dark:prose-invert prose-p:text-white prose-li:text-white prose-strong:text-white prose-h1:text-white prose-h2:text-white prose-h3:text-white prose-h4:text-white prose-code:text-white max-w-none break-words [overflow-wrap:anywhere] [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-4 [&_li]:my-1 [&_code]:bg-white/10 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded [&_pre]:overflow-x-auto [&_pre]:max-w-full [&_pre_code]:whitespace-pre-wrap [&_pre_code]:break-words">
-              <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>{displayContent}</ReactMarkdown>
             </div>
           )}
           <p className={cn(
@@ -739,7 +814,15 @@ const MessageBubble = React.forwardRef<
         />
       )}
 
-      {/* Proposal Buttons for messages without goalPreview */}
+      {/* Inline redirect card */}
+      {redirect && onRedirectGo && (
+        <RedirectCard
+          redirect={redirect}
+          onGo={() => onRedirectGo(redirect)}
+          onStay={() => {}}
+        />
+      )}
+
       {showProposalButtons && !isUser && (
         <div className="flex flex-col lg:flex-row lg:justify-start gap-2 mt-2">
           {buttonsDisabled && (
