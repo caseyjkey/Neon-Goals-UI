@@ -2,11 +2,12 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, useParams, Navigate, useNavigate, useLocation } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useParams, Navigate, useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useAuthStore } from "@/store/useAuthStore";
 import { useViewStore } from "@/store/useViewStore";
 import { useGoalsStore } from "@/store/useGoalsStore";
+import { useBillingStore } from "@/store/useBillingStore";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Header } from "@/components/layout/Header";
@@ -14,6 +15,7 @@ import { AccountDropdown } from "@/components/auth/AccountDropdown";
 import { GoalDetailView } from "@/components/goals/GoalDetailView";
 import { ChatSidebar } from "@/components/chat/ChatSidebar";
 import { FloatingBackButton } from "@/components/ui/FloatingBackButton";
+import { UpgradeModal } from "@/components/billing/UpgradeModal";
 import { Outlet } from "react-router-dom";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
@@ -22,6 +24,7 @@ import Settings from "./pages/Settings";
 import NotFound from "./pages/NotFound";
 import { apiClient } from "./services/apiClient";
 import { authService } from "./services/authService";
+import { toast } from "sonner";
 
 const queryClient = new QueryClient();
 
@@ -109,6 +112,9 @@ const MainLayout = () => {
             onClose={() => setAccountDropdownOpen(false)}
           />
         )}
+
+        {/* Global UpgradeModal */}
+        <UpgradeModal />
       </div>
     </ProtectedRoute>
   );
