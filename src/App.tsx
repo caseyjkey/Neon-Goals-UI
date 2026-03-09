@@ -125,20 +125,18 @@ const AppContent = () => {
   const initializeApp = useAuthStore((state) => state.initializeApp);
   const logout = useAuthStore((state) => state.logout);
   const fetchGoals = useGoalsStore((state) => state.fetchGoals);
+  const fetchBilling = useBillingStore((state) => state.fetchBilling);
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams, setSearchParams] = useSearchParams();
   useKeyboardShortcuts(); // Initialize keyboard shortcuts
 
   // Register 401 callback to properly log out (clear user state + redirect)
   useEffect(() => {
     apiClient.setUnauthorizedCallback(() => {
-      // Clear user state from Zustand store
       logout();
-      // Redirect to login, preserving the intended destination
       navigate('/login', { state: { from: location }, replace: true });
     });
-
-    // Cleanup callback on unmount
     return () => {
       apiClient.setUnauthorizedCallback(null);
     };
@@ -148,9 +146,23 @@ const AppContent = () => {
     initializeApp().then(() => {
       if (useAuthStore.getState().user) {
         fetchGoals();
+        fetchBilling();
       }
     });
-  }, [initializeApp, fetchGoals]);
+  }, [initializeApp, fetchGoals, fetchBilling]);
+
+  // Handle Stripe checkout success redirect — refetch billing + clean URL
+  useEffect(() => {
+    if (searchParams.get('checkout') === 'success') {
+      toast.success('Subscription activated! Your plan has been upgraded.', { duration: 5000 });
+      fetchBilling();
+      setSearchParams((prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete('checkout');
+        return next;
+      });
+    }
+  }, [searchParams, fetchBilling, setSearchParams]);
 
   // Re-validate auth when app returns to foreground (e.g. mobile tab switch)
   useEffect(() => {
