@@ -772,7 +772,11 @@ const MessageBubble = React.forwardRef<
   }
 
   return (
-    <div className={cn("flex flex-col w-full overflow-hidden", isUser ? "items-end" : "items-start")}>
+    <div
+      className={cn("flex flex-col w-full overflow-hidden", isUser ? "items-end" : "items-start")}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
       <motion.div
         ref={ref}
         initial={{ opacity: 0, y: 10 }}
@@ -806,6 +810,13 @@ const MessageBubble = React.forwardRef<
           </p>
         </div>
       </motion.div>
+
+      {/* Message actions on hover */}
+      <AnimatePresence>
+        {hovered && (
+          <MessageActions content={displayContent} isUser={isUser} />
+        )}
+      </AnimatePresence>
 
       {/* Inline extraction progress — persists as part of message history */}
       {!isUser && message.extraction && (
