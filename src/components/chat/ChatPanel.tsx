@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Send, X, Sparkles, Minimize2, Maximize2, Check, XCircle, CheckCircle, Edit3, Zap } from 'lucide-react';
+import { MessageActions } from '@/components/chat/MessageActions';
 import { cn } from '@/lib/utils';
 import { useChatStore } from '@/store/useChatStore';
 import { useGoalsStore } from '@/store/useGoalsStore';
@@ -620,6 +621,7 @@ const MessageBubble = React.forwardRef<
     onRedirectGo?: (redirect: ReturnType<typeof parseRedirectCommand>) => void;
   }
 >(({ message, messageId, onConfirm, onEdit, onCancel, onAccept, onDecline, isExiting, isLatestProposal = true, enableLiveExtraction = false, onExtractionComplete, onRedirectGo }, ref) => {
+  const [hovered, setHovered] = useState(false);
   const isUser = message.role === 'user';
   const hasGoalPreview = message.goalPreview && message.awaitingConfirmation;
   const showProposalButtons = message.awaitingConfirmation;
@@ -770,7 +772,11 @@ const MessageBubble = React.forwardRef<
   }
 
   return (
-    <div className={cn("flex flex-col w-full overflow-hidden", isUser ? "items-end" : "items-start")}>
+    <div
+      className={cn("flex flex-col w-full overflow-hidden", isUser ? "items-end" : "items-start")}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+    >
       <motion.div
         ref={ref}
         initial={{ opacity: 0, y: 10 }}
@@ -804,6 +810,13 @@ const MessageBubble = React.forwardRef<
           </p>
         </div>
       </motion.div>
+
+      {/* Message actions on hover */}
+      <AnimatePresence>
+        {hovered && (
+          <MessageActions content={displayContent} isUser={isUser} />
+        )}
+      </AnimatePresence>
 
       {/* Inline extraction progress — persists as part of message history */}
       {!isUser && message.extraction && (
