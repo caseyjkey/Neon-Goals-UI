@@ -437,6 +437,8 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
   sendGoalMessage: async (goalId, content) => {
     const goals = getGoals();
     const goal = goals.find(g => g.id === goalId);
+    const streamId = `goal-${goalId}-${Date.now()}`;
+
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
@@ -452,65 +454,190 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
           isLoading: true,
         },
       },
+      activeStreams: new Set([...state.activeStreams, streamId]),
+    }));
+
+    const assistantMessageId = (Date.now() + 1).toString();
+    const assistantMessage: Message = {
+      id: assistantMessageId,
+      role: 'assistant',
+      content: '',
+      timestamp: new Date(),
+    };
+
+    set((state) => ({
+      goalChats: {
+        ...state.goalChats,
+        [goalId]: {
+          ...state.goalChats[goalId]!,
+          messages: [...(state.goalChats[goalId]?.messages || []), assistantMessage],
+        },
+      },
     }));
 
     try {
-      const response = await aiGoalChatService.chat(goalId, { message: content });
+      let fullContent = '';
+      let finalChunk: any = {};
 
-      const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: response.content,
-        timestamp: new Date(),
-        goalPreview: (response as any).goalPreview,
-        awaitingConfirmation: (response as any).awaitingConfirmation,
-        proposalType: (response as any).proposalType,
-        commands: response.commands,
-      };
+      const stream = await aiGoalChatService.chatStream(goalId, { message: content });
+      const reader = stream.getReader();
+      const decoder = new TextDecoder();
+
+      while (true) {
+        const { done: readerDone, value } = await reader.read();
+        if (readerDone) break;
+
+        const text = decoder.decode(value, { stream: true });
+        const sseLines = text.split('\n').filter(line => line.startsWith('data: '));
+
+        for (const line of sseLines) {
+          try {
+            const chunk = JSON.parse(line.slice(6));
+            fullContent += chunk.content || '';
+
+            if (chunk.done) {
+              finalChunk = chunk;
+            }
+
+            set((state) => ({
+              goalChats: {
+                ...state.goalChats,
+                [goalId]: {
+                  ...state.goalChats[goalId]!,
+                  messages: state.goalChats[goalId]!.messages.map(msg =>
+                    msg.id === assistantMessageId
+                      ? { ...msg, content: fullContent }
+                      : msg
+                  ),
+                  ...(chunk.done && { isLoading: false }),
+                },
+              },
+            }));
+          } catch (parseErr) {
+            // Skip malformed SSE lines
+          }
+        }
+      }
+
+      // Final update with metadata
+      if (finalChunk.done) {
+        set((state) => ({
+          goalChats: {
+            ...state.goalChats,
+            [goalId]: {
+              ...state.goalChats[goalId]!,
+              messages: state.goalChats[goalId]!.messages.map(msg =>
+                msg.id === assistantMessageId
+                  ? {
+                      ...msg,
+                      content: fullContent,
+                      goalPreview: finalChunk.goalPreview,
+                      awaitingConfirmation: finalChunk.awaitingConfirmation,
+                      proposalType: finalChunk.proposalType,
+                      commands: finalChunk.commands,
+                      extraction: normalizeExtraction(finalChunk.extraction),
+                    }
+                  : msg
+              ),
+              isLoading: false,
+            },
+          },
+        }));
+      }
 
       set((state) => ({
-        goalChats: {
-          ...state.goalChats,
-          [goalId]: {
-            messages: [...(state.goalChats[goalId]?.messages || []), assistantMessage],
-            isLoading: false,
-          },
-        },
+        activeStreams: new Set([...state.activeStreams].filter(id => id !== streamId)),
       }));
 
+      // Handle extraction
+      const goalExtractionGroupId = finalChunk?.extraction?.groupId;
+      if (typeof goalExtractionGroupId === 'string' && goalExtractionGroupId) {
+        get().setExtractionActive(goalExtractionGroupId, true);
+      }
+
       // Track latest proposal
-      if ((response as any).awaitingConfirmation) {
-        get().setLatestProposal(`goal-${goalId}`, assistantMessage.id);
+      if (finalChunk.awaitingConfirmation) {
+        get().setLatestProposal(`goal-${goalId}`, assistantMessageId);
       }
 
       // Store pending commands for user confirmation
-      if ((response as any).awaitingConfirmation && response.commands?.length > 0) {
+      if (finalChunk.awaitingConfirmation && finalChunk.commands?.length > 0) {
         set({
           pendingCommands: {
             chatId: `goal-${goalId}`,
-            commands: response.commands,
+            commands: finalChunk.commands,
             timestamp: Date.now(),
           },
         });
+      } else {
+        // Execute non-awaiting commands
+        const commands = finalChunk.commands || [];
+        if (commands.length > 0) {
+          for (const cmd of commands) {
+            await get().executeChatCommand(cmd);
+          }
+          await goalsStoreActions().fetchGoals();
+        }
       }
     } catch (error) {
       console.error('AI goal chat error:', error);
-      const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: getGoalResponse(goal?.type || 'action', content),
-        timestamp: new Date(),
-      };
 
-      set((state) => ({
-        goalChats: {
-          ...state.goalChats,
-          [goalId]: {
-            messages: [...(state.goalChats[goalId]?.messages || []), assistantMessage],
-            isLoading: false,
+      // Fallback to non-streaming
+      try {
+        const response = await aiGoalChatService.chat(goalId, { message: content });
+        set((state) => ({
+          goalChats: {
+            ...state.goalChats,
+            [goalId]: {
+              ...state.goalChats[goalId]!,
+              messages: state.goalChats[goalId]!.messages.map(msg =>
+                msg.id === assistantMessageId
+                  ? {
+                      ...msg,
+                      content: response.content,
+                      goalPreview: (response as any).goalPreview,
+                      awaitingConfirmation: (response as any).awaitingConfirmation,
+                      proposalType: (response as any).proposalType,
+                      commands: response.commands,
+                    }
+                  : msg
+              ),
+              isLoading: false,
+            },
           },
-        },
-      }));
+          activeStreams: new Set([...state.activeStreams].filter(id => id !== streamId)),
+        }));
+
+        if ((response as any).awaitingConfirmation) {
+          get().setLatestProposal(`goal-${goalId}`, assistantMessageId);
+        }
+        if ((response as any).awaitingConfirmation && response.commands?.length > 0) {
+          set({
+            pendingCommands: {
+              chatId: `goal-${goalId}`,
+              commands: response.commands,
+              timestamp: Date.now(),
+            },
+          });
+        }
+      } catch (fallbackError) {
+        console.error('Goal chat fallback also failed:', fallbackError);
+        set((state) => ({
+          goalChats: {
+            ...state.goalChats,
+            [goalId]: {
+              ...state.goalChats[goalId]!,
+              messages: state.goalChats[goalId]!.messages.map(msg =>
+                msg.id === assistantMessageId
+                  ? { ...msg, content: getGoalResponse(goal?.type || 'action', content) }
+                  : msg
+              ),
+              isLoading: false,
+            },
+          },
+          activeStreams: new Set([...state.activeStreams].filter(id => id !== streamId)),
+        }));
+      }
     }
   },
 
