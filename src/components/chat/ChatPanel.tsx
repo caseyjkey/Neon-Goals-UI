@@ -180,6 +180,10 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
     fetchOverviewChat,
     fetchCategoryChat,
     fetchGoalChat,
+    stopOverviewStream,
+    stopCategoryStream,
+    stopGoalStream,
+    isStreamActive,
   } = useChatStore();
   const goals = useGoalsStore((state) => state.goals);
   const chatPulseTrigger = useViewStore((state) => state.chatPulseTrigger);
