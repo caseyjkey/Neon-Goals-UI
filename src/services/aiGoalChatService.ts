@@ -23,6 +23,14 @@ export const aiGoalChatService = {
   },
 
   /**
+   * Streaming chat with a goal-specific agent
+   * Returns a readable stream of Server-Sent Events
+   */
+  async chatStream(goalId: string, request: GoalChatRequest): Promise<ReadableStream> {
+    return apiClient.postStream(`/ai/goal-chat/${goalId}/stream`, request);
+  },
+
+  /**
    * Stop active goal chat stream
    */
   async stopStream(goalId: string): Promise<{ stopped: boolean; message: string }> {

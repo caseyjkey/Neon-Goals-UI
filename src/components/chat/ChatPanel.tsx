@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, X, Sparkles, Minimize2, Maximize2, Check, XCircle, CheckCircle, Edit3, Zap } from 'lucide-react';
+import { Send, X, Sparkles, Minimize2, Maximize2, Check, XCircle, CheckCircle, Edit3, Zap, StopCircle } from 'lucide-react';
 import { MessageActions } from '@/components/chat/MessageActions';
 import { cn } from '@/lib/utils';
 import { useChatStore } from '@/store/useChatStore';
@@ -180,6 +180,10 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
     fetchOverviewChat,
     fetchCategoryChat,
     fetchGoalChat,
+    stopOverviewStream,
+    stopCategoryStream,
+    stopGoalStream,
+    isStreamActive,
   } = useChatStore();
   const goals = useGoalsStore((state) => state.goals);
   const chatPulseTrigger = useViewStore((state) => state.chatPulseTrigger);
@@ -345,6 +349,34 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
     }
   }, []); // Only run once on mount
 
+  // Streaming state - check if any stream is active for current chat
+  const isStreaming = useMemo(() => {
+    if (mode === 'goal' && goalId) {
+      return chat.isLoading || Array.from(useChatStore.getState().activeStreams).some(id => id.startsWith(`goal-${goalId}`));
+    }
+    if (activeCategory === 'all') {
+      return chat.isLoading || Array.from(useChatStore.getState().activeStreams).some(id => id.startsWith('overview'));
+    }
+    if (activeCategory === 'items' || activeCategory === 'finances' || activeCategory === 'actions') {
+      return chat.isLoading || Array.from(useChatStore.getState().activeStreams).some(id => id.startsWith(activeCategory));
+    }
+    return chat.isLoading;
+  }, [chat.isLoading, mode, goalId, activeCategory]);
+
+  const handleStop = useCallback(async () => {
+    try {
+      if (mode === 'goal' && goalId) {
+        await stopGoalStream(goalId);
+      } else if (activeCategory === 'all') {
+        await stopOverviewStream();
+      } else if (activeCategory === 'items' || activeCategory === 'finances' || activeCategory === 'actions') {
+        await stopCategoryStream(activeCategory);
+      }
+    } catch (error) {
+      console.error('Failed to stop stream:', error);
+    }
+  }, [mode, goalId, activeCategory, stopGoalStream, stopOverviewStream, stopCategoryStream]);
+
   const { usage, openUpgrade } = useBillingStore();
   const usagePercent = getUsagePercent(usage);
   const limitReached = isMessageLimitReached(usage);
@@ -352,7 +384,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || chat.isLoading) return;
+    if (!input.trim() || isStreaming) return;
 
     // Entitlement gate: block if message limit reached
     if (limitReached) {
@@ -582,21 +614,32 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                 onChange={(e) => setInput(e.target.value)}
                 placeholder={limitReached ? "Upgrade to keep chatting..." : "Ask me anything..."}
                 className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none"
-                disabled={chat.isLoading}
+                disabled={isStreaming}
               />
             </motion.div>
-            <button
-              type="submit"
-              disabled={!input.trim() || chat.isLoading || limitReached}
-              className={cn(
-                "p-3 rounded-xl transition-all",
-                input.trim() && !chat.isLoading && !limitReached
-                  ? "bg-gradient-neon text-primary-foreground neon-glow-cyan hover:scale-105"
-                  : "bg-muted text-muted-foreground cursor-not-allowed"
-              )}
-            >
-              <Send className="w-5 h-5" />
-            </button>
+            {isStreaming ? (
+              <button
+                type="button"
+                onClick={handleStop}
+                className="p-3 rounded-xl bg-destructive/20 text-destructive hover:bg-destructive/30 transition-all"
+                title="Stop generating"
+              >
+                <StopCircle className="w-5 h-5" />
+              </button>
+            ) : (
+              <button
+                type="submit"
+                disabled={!input.trim() || limitReached}
+                className={cn(
+                  "p-3 rounded-xl transition-all",
+                  input.trim() && !limitReached
+                    ? "bg-gradient-neon text-primary-foreground neon-glow-cyan hover:scale-105"
+                    : "bg-muted text-muted-foreground cursor-not-allowed"
+                )}
+              >
+                <Send className="w-5 h-5" />
+              </button>
+            )}
           </div>
         </form>
       )}
