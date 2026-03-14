@@ -614,21 +614,32 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
                 onChange={(e) => setInput(e.target.value)}
                 placeholder={limitReached ? "Upgrade to keep chatting..." : "Ask me anything..."}
                 className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none"
-                disabled={chat.isLoading}
+                disabled={isStreaming}
               />
             </motion.div>
-            <button
-              type="submit"
-              disabled={!input.trim() || chat.isLoading || limitReached}
-              className={cn(
-                "p-3 rounded-xl transition-all",
-                input.trim() && !chat.isLoading && !limitReached
-                  ? "bg-gradient-neon text-primary-foreground neon-glow-cyan hover:scale-105"
-                  : "bg-muted text-muted-foreground cursor-not-allowed"
-              )}
-            >
-              <Send className="w-5 h-5" />
-            </button>
+            {isStreaming ? (
+              <button
+                type="button"
+                onClick={handleStop}
+                className="p-3 rounded-xl bg-destructive/20 text-destructive hover:bg-destructive/30 transition-all"
+                title="Stop generating"
+              >
+                <StopCircle className="w-5 h-5" />
+              </button>
+            ) : (
+              <button
+                type="submit"
+                disabled={!input.trim() || limitReached}
+                className={cn(
+                  "p-3 rounded-xl transition-all",
+                  input.trim() && !limitReached
+                    ? "bg-gradient-neon text-primary-foreground neon-glow-cyan hover:scale-105"
+                    : "bg-muted text-muted-foreground cursor-not-allowed"
+                )}
+              >
+                <Send className="w-5 h-5" />
+              </button>
+            )}
           </div>
         </form>
       )}
