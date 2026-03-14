@@ -349,6 +349,34 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
     }
   }, []); // Only run once on mount
 
+  // Streaming state - check if any stream is active for current chat
+  const isStreaming = useMemo(() => {
+    if (mode === 'goal' && goalId) {
+      return chat.isLoading || Array.from(useChatStore.getState().activeStreams).some(id => id.startsWith(`goal-${goalId}`));
+    }
+    if (activeCategory === 'all') {
+      return chat.isLoading || Array.from(useChatStore.getState().activeStreams).some(id => id.startsWith('overview'));
+    }
+    if (activeCategory === 'items' || activeCategory === 'finances' || activeCategory === 'actions') {
+      return chat.isLoading || Array.from(useChatStore.getState().activeStreams).some(id => id.startsWith(activeCategory));
+    }
+    return chat.isLoading;
+  }, [chat.isLoading, mode, goalId, activeCategory]);
+
+  const handleStop = useCallback(async () => {
+    try {
+      if (mode === 'goal' && goalId) {
+        await stopGoalStream(goalId);
+      } else if (activeCategory === 'all') {
+        await stopOverviewStream();
+      } else if (activeCategory === 'items' || activeCategory === 'finances' || activeCategory === 'actions') {
+        await stopCategoryStream(activeCategory);
+      }
+    } catch (error) {
+      console.error('Failed to stop stream:', error);
+    }
+  }, [mode, goalId, activeCategory, stopGoalStream, stopOverviewStream, stopCategoryStream]);
+
   const { usage, openUpgrade } = useBillingStore();
   const usagePercent = getUsagePercent(usage);
   const limitReached = isMessageLimitReached(usage);
