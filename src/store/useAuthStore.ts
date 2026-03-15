@@ -6,7 +6,7 @@ import { usersService } from '@/services/usersService';
 
 const defaultSettings: Settings = {
   theme: 'miami-vice',
-  chatModel: 'gpt-4',
+  chatModel: 'gpt-5-nano',
   displayName: 'User',
 };
 
@@ -50,8 +50,15 @@ export const useAuthStore = create<AuthState>()(
       fetchUser: async () => {
         try {
           set({ isLoading: true, error: null });
-          const user = await authService.getProfile();
-          set({ user, isLoading: false });
+          const profile = await authService.getProfile();
+          const { settings, ...user } = profile;
+          set((state) => ({
+            user,
+            settings: settings
+              ? { ...state.settings, ...settings }
+              : state.settings,
+            isLoading: false,
+          }));
         } catch (error: any) {
           console.error('Failed to fetch user:', error);
           const msg = error?.message || '';
