@@ -16,6 +16,7 @@ export { useFinanceStore } from './useFinanceStore';
 export { useGoalsStore } from './useGoalsStore';
 export { useChatStore } from './useChatStore';
 export { useBillingStore } from './useBillingStore';
+export { useProjectionStore } from './useProjectionStore';
 
 // Shared types
 export type { ChatCommand, PendingCommandsState } from './types';
