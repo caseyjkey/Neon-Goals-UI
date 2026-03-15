@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { RefreshCw, TrendingUp, Target, Wallet, ChevronDown, ChevronUp, Landmark, Plus, AlertCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useGoalsStore } from '@/store/useGoalsStore';
 import { useFinanceStore } from '@/store/useFinanceStore';
+import { useProjectionStore } from '@/store/useProjectionStore';
 import type { FinanceGoal } from '@/types/goals';
 import { PlaidAccountCard } from '@/components/plaid/PlaidAccountCard';
 import { AccountSectionEmpty } from '@/components/plaid/AccountSectionEmpty';
@@ -11,6 +12,12 @@ import { TransactionModal } from '@/components/plaid/TransactionModal';
 import { usePlaid, type PendingPlaidAccount } from '@/hooks/usePlaidLink';
 import { SyncToast, useSyncToast } from '@/components/ui/SyncToast';
 import type { PlaidAccount } from '@/services/plaidService';
+import { ProjectionHero } from '@/components/projections/ProjectionHero';
+import { ProjectionChartCard } from '@/components/projections/ProjectionChartCard';
+import { GoalForecastCard } from '@/components/projections/GoalForecastCard';
+import { RecurringCashflowCard } from '@/components/projections/RecurringCashflowCard';
+import { ScenarioControls } from '@/components/projections/ScenarioControls';
+import { AccountCoverageCard } from '@/components/projections/AccountCoverageCard';
 
 interface FinancialSummaryProps {
   className?: string;
@@ -65,10 +72,24 @@ const isDebtType = (type: string, subtype?: string) => {
 export const FinancialSummary: React.FC<FinancialSummaryProps> = ({ className }) => {
   const { goals } = useGoalsStore();
   const { syncFinanceGoal } = useFinanceStore();
+  const fetchOverview = useProjectionStore((s) => s.fetchOverview);
+  const fetchCashflow = useProjectionStore((s) => s.fetchCashflow);
+  const fetchGoalForecasts = useProjectionStore((s) => s.fetchGoalForecasts);
+  const fetchManualAccounts = useProjectionStore((s) => s.fetchManualAccounts);
+  const fetchManualCashflows = useProjectionStore((s) => s.fetchManualCashflows);
   const [showAccounts, setShowAccounts] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState<PlaidAccount | null>(null);
   const syncToast = useSyncToast();
   const { open: openPlaidLink, isLoading: isPlaidLoading, error: plaidError, accounts, pendingAccounts, syncAccount, removeAccount, isSyncing, fetchAccounts } = usePlaid();
+
+  // Fetch projection data on mount
+  useEffect(() => {
+    fetchOverview();
+    fetchCashflow();
+    fetchGoalForecasts();
+    fetchManualAccounts();
+    fetchManualCashflows();
+  }, []);
 
   const financeGoals = goals.filter(
     (goal): goal is FinanceGoal => goal.type === 'finance' && goal.status === 'active'
@@ -247,6 +268,16 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({ className })
             })}
           </div>
         )}
+
+        {/* Projection Components */}
+        <div className="mt-6 space-y-4">
+          <ProjectionHero />
+          <ProjectionChartCard />
+          <GoalForecastCard />
+          <RecurringCashflowCard />
+          <ScenarioControls />
+          <AccountCoverageCard />
+        </div>
       </div>
 
       {/* Accounts Section (Collapsible) */}
