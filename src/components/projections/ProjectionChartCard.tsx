@@ -49,7 +49,10 @@ export const ProjectionChartCard: React.FC = () => {
   }));
 
   // Find the boundary between actual and projected
-  const currentIdx = chartData.findLastIndex((d) => !d.isProjected);
+  let currentIdx = -1;
+  for (let i = chartData.length - 1; i >= 0; i--) {
+    if (!chartData[i].isProjected) { currentIdx = i; break; }
+  }
 
   // Goal milestones
   const milestones = overview?.goalMilestones ?? [];
