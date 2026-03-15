@@ -268,6 +268,16 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({ className })
             })}
           </div>
         )}
+
+        {/* Projection Components */}
+        <div className="mt-6 space-y-4">
+          <ProjectionHero />
+          <ProjectionChartCard />
+          <GoalForecastCard />
+          <RecurringCashflowCard />
+          <ScenarioControls />
+          <AccountCoverageCard />
+        </div>
       </div>
 
       {/* Accounts Section (Collapsible) */}
