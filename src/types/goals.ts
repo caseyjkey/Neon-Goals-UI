@@ -131,6 +131,19 @@ export interface Settings {
   displayName: string;
 }
 
+export interface AIModelOption {
+  id: string;
+  label: string;
+  provider: string;
+  supportsStreaming: boolean;
+  description?: string;
+}
+
+export interface SettingsOptions {
+  defaultModelId: string;
+  models: AIModelOption[];
+}
+
 export type ProposalType = 'confirm_edit_cancel' | 'accept_decline';
 
 export interface ExtractionInfo {

@@ -1,15 +1,14 @@
 import { apiClient } from './apiClient';
+import type { Settings, User } from '@/types/goals';
 import { API_BASE_URL } from '@/lib/apiConfig'; // Still used for GitHub OAuth URL
 
 export interface LoginResponse {
   access_token: string;
-  user: {
-    id: string;
-    email: string;
-    name: string;
-    avatar?: string;
-    githubLogin?: string;
-  };
+  user: User;
+}
+
+export interface UserProfileResponse extends User {
+  settings?: Settings;
 }
 
 export const authService = {
@@ -39,16 +38,7 @@ export const authService = {
   },
 
   async getProfile() {
-    return apiClient.get<{
-      id: string;
-      name: string;
-      email: string;
-      avatar?: string;
-      githubLogin?: string;
-      githubBio?: string | null;
-      githubLocation?: string | null;
-      githubBlog?: string | null;
-    }>('/auth/me');
+    return apiClient.get<UserProfileResponse>('/auth/me');
   },
 
   logout() {

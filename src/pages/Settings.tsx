@@ -8,6 +8,8 @@ import { BillingPlanCards } from '@/components/billing/BillingPlanCards';
 import { UsageMeter } from '@/components/billing/UsageMeter';
 import { ApiAccessGate } from '@/components/billing/ApiAccessGate';
 import { cn } from '@/lib/utils';
+import { usersService } from '@/services/usersService';
+import type { SettingsOptions } from '@/types/goals';
 
 type SettingsTab = 'profile' | 'appearance' | 'chat' | 'notifications' | 'billing' | 'developer' | 'data';
 
@@ -24,10 +26,12 @@ const TABS: { id: SettingsTab; label: string; icon: React.ReactNode }[] = [
 const Settings = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { user, settings, updateSettings } = useAuthStore();
+  const { user, settings, updateSettings, saveSettings } = useAuthStore();
   const { subscription, usage, openCustomerPortal, isLoading: billingLoading } = useBillingStore();
   const [accountDropdownOpen, setAccountDropdownOpen] = useState(false);
   const [portalLoading, setPortalLoading] = useState(false);
+  const [settingsOptions, setSettingsOptions] = useState<SettingsOptions | null>(null);
+  const [settingsOptionsLoading, setSettingsOptionsLoading] = useState(false);
 
   const activeTab = (searchParams.get('tab') as SettingsTab) || 'profile';
 
@@ -55,6 +59,32 @@ const Settings = () => {
     }
   }, [accountDropdownOpen]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadSettingsOptions = async () => {
+      try {
+        setSettingsOptionsLoading(true);
+        const options = await usersService.getSettingsOptions();
+        if (!cancelled) {
+          setSettingsOptions(options);
+        }
+      } catch (error) {
+        console.error('Failed to load settings options:', error);
+      } finally {
+        if (!cancelled) {
+          setSettingsOptionsLoading(false);
+        }
+      }
+    };
+
+    void loadSettingsOptions();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const themes = [
     { id: 'miami-vice', name: 'Miami Vice', colors: 'from-cyan-400 to-pink-500' },
     { id: 'cyberpunk', name: 'Cyberpunk', colors: 'from-purple-500 to-cyan-400' },
@@ -76,6 +106,12 @@ const Settings = () => {
 
   const currentPlan = subscription?.plan || 'free';
   const currentPlanLabel = currentPlan.charAt(0).toUpperCase() + currentPlan.slice(1);
+  const availableModels = settingsOptions?.models ?? [];
+
+  const persistSetting = async (newSettings: Partial<typeof settings>) => {
+    updateSettings(newSettings);
+    await saveSettings(newSettings);
+  };
 
   return (
     <div className="min-h-screen bg-background grid-bg">
@@ -260,7 +296,7 @@ const Settings = () => {
                           {themes.map((theme) => (
                             <button
                               key={theme.id}
-                              onClick={() => updateSettings({ theme: theme.id })}
+                              onClick={() => void persistSetting({ theme: theme.id })}
                               className={cn(
                                 'relative p-4 rounded-xl border-2 transition-all',
                                 'bg-gradient-to-br ' + theme.colors,
@@ -297,13 +333,29 @@ const Settings = () => {
                         <label className="text-sm font-medium text-foreground mb-2 block">AI Model</label>
                         <select
                           value={settings.chatModel}
-                          onChange={(e) => updateSettings({ chatModel: e.target.value })}
+                          onChange={(e) => void persistSetting({ chatModel: e.target.value })}
+                          disabled={settingsOptionsLoading || availableModels.length === 0}
                           className="w-full px-4 py-3 rounded-lg bg-muted/50 border border-border text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
                         >
-                          <option value="gpt-4">GPT-4 (Recommended)</option>
-                          <option value="gpt-4-turbo">GPT-4 Turbo</option>
-                          <option value="claude-3-opus">Claude 3 Opus</option>
+                          {settingsOptionsLoading && (
+                            <option value={settings.chatModel}>Loading models...</option>
+                          )}
+                          {!settingsOptionsLoading && availableModels.length === 0 && (
+                            <option value={settings.chatModel}>No models available</option>
+                          )}
+                          {availableModels.map((model) => (
+                            <option key={model.id} value={model.id}>
+                              {model.label}
+                              {model.id === settingsOptions?.defaultModelId ? ' (Default)' : ''}
+                            </option>
+                          ))}
                         </select>
+                        {availableModels.length > 0 && (
+                          <p className="mt-2 text-xs text-muted-foreground">
+                            {availableModels.find((model) => model.id === settings.chatModel)?.description ||
+                              'Choose which model the assistant should use for your chats.'}
+                          </p>
+                        )}
                       </div>
                     </div>
                   )}
