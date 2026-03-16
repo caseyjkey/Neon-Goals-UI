@@ -1,0 +1,36 @@
+name: Sync Upstream
+
+on:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: sync-upstream-main
+  cancel-in-progress: true
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out fork main
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Force-push fork main to upstream main
+        env:
+          UPSTREAM_SYNC_TOKEN: ${{ secrets.UPSTREAM_SYNC_TOKEN }}
+        run: |
+          if [ -z "$UPSTREAM_SYNC_TOKEN" ]; then
+            echo "UPSTREAM_SYNC_TOKEN is not configured"
+            exit 1
+          fi
+
+          git remote add upstream-sync "https://x-access-token:${UPSTREAM_SYNC_TOKEN}@github.com/keycasey/Neon-Goals-UI.git"
+          git push upstream-sync HEAD:main --force
