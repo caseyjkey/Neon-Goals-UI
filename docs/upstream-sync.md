@@ -21,3 +21,5 @@ The token must have write access to `keycasey/Neon-Goals-UI`.
 The sync automation lives in:
 
 - `.github/workflows/sync-upstream.yml`
+
+This document is intentionally kept in the fork so sync behavior is easy to verify and update.
