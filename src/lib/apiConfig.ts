@@ -1,35 +1,58 @@
-/**
- * Dynamic API URL configuration
- * In development mode, uses the same host as the origin but with port 3001
- * This allows testing from localhost, network IP, or Tailscale URLs
- * In production mode, uses the configured VITE_API_URL
- *
- * Uses MODE instead of PROD so that 'vite preview --mode development' works correctly
- */
-export const getApiUrl = (): string => {
-  // In development mode, always use dynamic URL from origin
-  // This ensures it works for localhost, network IP, or any origin
-  if (import.meta.env.MODE === 'development' && typeof window !== 'undefined') {
-    const url = new URL(window.location.origin);
-    url.port = '3001'; // Backend API port
-    // Remove trailing slash to avoid double slashes when concatenating paths
-    let urlStr = url.toString();
-    if (urlStr.endsWith('/')) {
-      urlStr = urlStr.slice(0, -1);
+const PRODUCTION_API_URL = 'https://goals.keycasey.com';
+
+const trimTrailingSlash = (url: string): string =>
+  url.endsWith('/') ? url.slice(0, -1) : url;
+
+const isPrivateDevHostname = (hostname: string): boolean =>
+  hostname === 'localhost' ||
+  hostname === '127.0.0.1' ||
+  /^10\.\d+\.\d+\.\d+$/.test(hostname) ||
+  /^192\.168\.\d+\.\d+$/.test(hostname) ||
+  /^172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+$/.test(hostname) ||
+  /^100\.(6[4-9]|[7-9]\d|1[0-1]\d|12[0-7])\.\d+\.\d+$/.test(hostname);
+
+const isProductionHostname = (hostname: string): boolean =>
+  hostname === 'goals.keycasey.com' || hostname === 'www.goals.keycasey.com';
+
+export const resolveApiUrl = ({
+  mode,
+  origin,
+  envUrl,
+}: {
+  mode: string;
+  origin?: string;
+  envUrl?: string;
+}): string => {
+  const normalizedEnvUrl = envUrl ? trimTrailingSlash(envUrl) : undefined;
+
+  if (origin) {
+    const url = new URL(origin);
+
+    if (mode === 'development' && isPrivateDevHostname(url.hostname)) {
+      url.port = '3001';
+      return trimTrailingSlash(url.toString());
     }
-    return urlStr;
+
+    if (isProductionHostname(url.hostname)) {
+      return trimTrailingSlash(url.origin);
+    }
+
+    return normalizedEnvUrl ?? PRODUCTION_API_URL;
   }
 
-  // In production mode, use the configured URL from env
-  const envUrl = import.meta.env.VITE_API_URL;
-  if (envUrl) {
-    // Remove trailing slash to avoid double slashes
-    return envUrl.endsWith('/') ? envUrl.slice(0, -1) : envUrl;
+  if (normalizedEnvUrl) {
+    return normalizedEnvUrl;
   }
 
-  // Fallback for SSR or server-side rendering
-  return 'http://localhost:3001';
+  return mode === 'development' ? 'http://localhost:3001' : PRODUCTION_API_URL;
 };
+
+export const getApiUrl = (): string =>
+  resolveApiUrl({
+    mode: import.meta.env.MODE,
+    origin: typeof window !== 'undefined' ? window.location.origin : undefined,
+    envUrl: import.meta.env.VITE_API_URL,
+  });
 
 export const API_BASE_URL = getApiUrl();
 // CACHE BUST 1770691342
