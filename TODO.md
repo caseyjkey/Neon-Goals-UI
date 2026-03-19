@@ -83,3 +83,76 @@
 
 - [ ] Update AGENTS.md with redirect UI patterns
 - [ ] Create component storybook
+
+---
+
+## Amazon Cart & Vehicle Upgrades UI
+
+### High Priority
+
+- [ ] Amazon Cart import flow
+- [ ] Price change visualization for item goals
+  - [ ] Show price as green text if price has decreased from previous scrape
+    - `general` for mixed items
+    - Other categories as needed
+  - [ ] Select which items to import (checkboxes)
+
+- [ ] Vehicle tinting goal creation
+  - [ ] "Vehicle Upgrade" goal type using existing `ItemCategory.vehicle`
+  - [ ] "Vehicle Parts" goal type using `ItemCategory.vehicle_parts`
+  - [ ] Tinting quote input (presets: $70 full, $400 rear, $150 single)
+  - [ ] Custom amount option (user enters own quote)
+  - [ ] **Use generic `searchFilters` JSON metadata for tinting preferences:**
+    ```typescript
+    {
+      "searchFilters": {
+        "windowType": "full_car" | "rear_windows" | "single_windows" | "custom",
+        "budget": 70 | 400 | 150  // Optional custom amount
+      }
+    }
+    ```
+
+- [ ] Item grouping UI
+  - [ ] Create/edit ItemGroup modal (name, description)
+  - [ ] Assign items to groups during Amazon import
+  - [ ] Group cards on goal detail page
+  - [ ] Drag-and-drop to reorder groups
+
+### Medium Priority
+
+- [ ] Amazon product details integration
+  - [ ] Link to Amazon product page from item goal
+  - [ ] Show ASIN in goal details
+  - [ ] Track current price from Amazon API (if available)
+
+- [ ] Price alert settings
+  - [ ] Enable/disable price tracking for Amazon items
+  - [ ] Set alert threshold (e.g., drop by $10)
+  - [ ] Notification preference (toast, push, email)
+
+- [ ] Tinting progress tracker
+  - [ ] Visual progress bar for tinting budget ($0 to $70 for full car)
+  - [ ] Save tinting quotes for comparison
+  - [ ] Mark completed when full tinting done
+  - [ ] **Use `searchFilters` metadata for budget tracking:**
+    ```typescript
+    {
+      "searchFilters": {
+        "budget": 70 | 400 | 150  // Preset amounts
+        "customBudget": 150  // User-entered custom amount
+      }
+    }
+    ```
+
+### Low Priority
+
+- [ ] Chrome extension connection (if built)
+  - [ ] Detect if extension is installed
+  - [ ] Pairing flow (scan QR code, enter code)
+  - [ ] Status indicator showing extension connected
+  - [ ] Auto-import cart when extension detects "Buy Later" page
+
+- [ ] Amazon cart sync (real-time)
+  - [ ] WebSocket or polling for cart updates
+  - [ ] Live cart item count badge
+  - [ ] Quick-add to goals from extension
