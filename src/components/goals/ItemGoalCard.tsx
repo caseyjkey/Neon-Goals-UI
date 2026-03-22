@@ -102,21 +102,23 @@ export const ItemGoalCard: React.FC<ItemGoalCardProps> = ({
             signalCount={0}
             className="h-full"
           />
+        ) : isSearchingState && (!latestGoal.candidates || latestGoal.candidates.length === 0) ? (
+          <ScannerPlaceholder
+            status="initiating"
+            signalCount={0}
+            className="h-full"
+          />
         ) : !latestGoal.productImage ||
-           (!hasValidSelection && latestGoal.productImage?.includes('unsplash.com')) ||
-           (!hasValidSelection && !selectedCandidateImage) ||
-           isSearchingState ? (
+           (!hasValidSelection && !selectedCandidateImage && (!latestGoal.candidates || latestGoal.candidates.length === 0)) ? (
           <ScannerPlaceholder
             status={
-              isSearchingState
-                ? 'initiating'
-                : hasValidSelection
+              hasValidSelection
                 ? 'acquired'
-                : candidateCount > 0
+                : candidateCount > 0 || (latestGoal.candidates && latestGoal.candidates.length > 0)
                 ? 'decoding'
                 : 'initiating'
             }
-            signalCount={candidateCount}
+            signalCount={candidateCount || (latestGoal.candidates?.length ?? 0)}
             className="h-full"
           />
         ) : (
