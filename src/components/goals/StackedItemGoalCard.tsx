@@ -231,16 +231,19 @@ export const StackedItemGoalCard = React.forwardRef<
               >
                 {/* Thumbnail */}
                 <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0">
-                  {!goal.productImage ||
-                   goal.productImage?.includes('unsplash.com') ||
-                   !hasValidSelection(goal) ? (
+                  {(goal.statusBadge === 'pending_search' || goal.statusBadge === 'pending-search') &&
+                   (!goal.candidates || goal.candidates.length === 0) ? (
+                    <ScannerPlaceholder
+                      status="initiating"
+                      signalCount={0}
+                      className="w-full h-full"
+                    />
+                  ) : !goal.productImage &&
+                   !hasValidSelection(goal) &&
+                   (!goal.candidates || goal.candidates.length === 0) ? (
                     <ScannerPlaceholder
                       status={
-                        goal.statusBadge === 'pending_search' || goal.statusBadge === 'pending-search'
-                          ? 'initiating'
-                          : hasValidSelection(goal)
-                          ? 'acquired'
-                          : getCandidateCount(goal) > 0
+                        getCandidateCount(goal) > 0
                           ? 'decoding'
                           : 'initiating'
                       }
