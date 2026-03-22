@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Shield, Plus, AlertTriangle, Landmark, DollarSign, Trash2 } from 'lucide-react';
+import { Shield, AlertTriangle, Landmark, DollarSign, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useProjectionStore } from '@/store/useProjectionStore';
 import { usePlaid } from '@/hooks/usePlaidLink';
 import { finicityService } from '@/services/finicityService';
+import { AccountLinkDialog } from './AccountLinkDialog';
 import { ManualAccountDialog } from './ManualAccountDialog';
 import { ManualCashflowDialog } from './ManualCashflowDialog';
 
@@ -17,16 +18,28 @@ export const AccountCoverageCard: React.FC = () => {
   const { accounts: plaidAccounts } = usePlaid();
   const { open: openPlaidLink, isLoading: isPlaidLoading } = usePlaid();
 
+  const [showLinkDialog, setShowLinkDialog] = useState(false);
   const [showAccountDialog, setShowAccountDialog] = useState(false);
   const [showCashflowDialog, setShowCashflowDialog] = useState(false);
   const [isOpeningFinicity, setIsOpeningFinicity] = useState(false);
 
   const finicityEnabled = import.meta.env.VITE_ENABLE_FINICITY_PROBE === 'true';
 
+  const openPlaid = () => {
+    setShowLinkDialog(false);
+    openPlaidLink();
+  };
+
+  const openManualAccount = () => {
+    setShowLinkDialog(false);
+    setShowAccountDialog(true);
+  };
+
   const openFinicity = async () => {
     setIsOpeningFinicity(true);
     try {
       const response = await finicityService.createConnectUrl();
+      setShowLinkDialog(false);
       window.open(response.connectUrl, '_blank', 'noopener,noreferrer');
     } catch (error) {
       console.error('Failed to open Finicity probe:', error);
@@ -51,14 +64,12 @@ export const AccountCoverageCard: React.FC = () => {
           Account Coverage
         </p>
 
-        {/* Summary */}
         <div className="flex items-center gap-4 text-xs text-muted-foreground">
           <span>{totalLinked} linked</span>
           <span>{totalManual} manual</span>
           <span>{manualCashflows.length} cashflow entries</span>
         </div>
 
-        {/* Low confidence warning */}
         {isLowConfidence && (
           <div className="flex items-start gap-2 p-2 rounded-lg bg-warning/10 border border-warning/20">
             <AlertTriangle className="w-3.5 h-3.5 text-warning mt-0.5 flex-shrink-0" />
@@ -70,7 +81,6 @@ export const AccountCoverageCard: React.FC = () => {
           </div>
         )}
 
-        {/* Manual accounts list */}
         {manualAccounts.length > 0 && (
           <div className="space-y-1">
             <p className="text-[10px] text-muted-foreground/60 uppercase tracking-wider">
@@ -101,7 +111,6 @@ export const AccountCoverageCard: React.FC = () => {
           </div>
         )}
 
-        {/* Manual cashflows list */}
         {manualCashflows.length > 0 && (
           <div className="space-y-1">
             <p className="text-[10px] text-muted-foreground/60 uppercase tracking-wider">
@@ -136,36 +145,14 @@ export const AccountCoverageCard: React.FC = () => {
           </div>
         )}
 
-        {/* CTAs */}
         <div className="flex flex-wrap gap-2">
           <button
-            onClick={() => openPlaidLink()}
-            disabled={isPlaidLoading}
+            onClick={() => setShowLinkDialog(true)}
             className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium
               bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 transition-colors"
           >
             <Landmark className="w-3 h-3" />
             Link Account
-          </button>
-          {finicityEnabled && (
-            <button
-              onClick={openFinicity}
-              disabled={isOpeningFinicity}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium
-                bg-accent/10 text-accent border border-accent/20 hover:bg-accent/20 transition-colors disabled:opacity-50"
-              title="Temporary Finicity probe"
-            >
-              <Landmark className="w-3 h-3" />
-              {isOpeningFinicity ? 'Opening Finicity...' : 'Link via Finicity'}
-            </button>
-          )}
-          <button
-            onClick={() => setShowAccountDialog(true)}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium
-              bg-muted/30 text-foreground border border-border/30 hover:bg-muted/50 transition-colors"
-          >
-            <Plus className="w-3 h-3" />
-            Manual Account
           </button>
           <button
             onClick={() => setShowCashflowDialog(true)}
@@ -178,6 +165,16 @@ export const AccountCoverageCard: React.FC = () => {
         </div>
       </motion.div>
 
+      <AccountLinkDialog
+        open={showLinkDialog}
+        onOpenChange={setShowLinkDialog}
+        onOpenPlaid={openPlaid}
+        onOpenFinicity={openFinicity}
+        onOpenManualAccount={openManualAccount}
+        isPlaidLoading={isPlaidLoading}
+        isFinicityLoading={isOpeningFinicity}
+        finicityEnabled={finicityEnabled}
+      />
       <ManualAccountDialog
         open={showAccountDialog}
         onOpenChange={setShowAccountDialog}
