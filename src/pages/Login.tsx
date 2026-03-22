@@ -7,15 +7,15 @@ import { useGoalsStore } from '@/store/useGoalsStore';
 import { initiateGitHubLogin } from '@/services/githubAuth';
 import { authService } from '@/services/authService';
 import { cn } from '@/lib/utils';
-import { mockGoals } from '@/data/mockGoals';
 import { EmailForm } from '@/components/auth/EmailForm';
 import { RegisterForm } from '@/components/auth/RegisterForm';
+import { loginDemo } from './loginUtils';
 
 type AuthMode = 'oauth' | 'login' | 'register' | 'verify';
 
 const Login = () => {
   const { user, setUser, setDemoMode } = useAuthStore();
-  const { addGoal, fetchGoals } = useGoalsStore();
+  const { fetchGoals } = useGoalsStore();
   const navigate = useNavigate();
   const [authMode, setAuthMode] = useState<AuthMode>('oauth');
   const [verifyEmail, setVerifyEmail] = useState('');
@@ -41,32 +41,19 @@ const Login = () => {
   };
 
   const handleDemoLogin = async () => {
-    try {
-      // Clear any existing auth token to prevent 401 errors
-      authService.logout();
-
-      // Call backend demo endpoint to get a real JWT token
-      const demoUser = await authService.demoLogin();
-
-      setUser(demoUser);
-      setDemoMode(true); // Enable demo mode flag for rate limiting awareness
-      // Fetch goals from API (demo user has real data)
-      await fetchGoals();
-      navigate('/');
-    } catch (error) {
-      console.error('Demo login failed:', error);
-      // Fallback to local-only demo mode if backend fails
-      const localDemoUser = {
-        id: 'demo-user',
-        name: 'Demo User',
-        email: 'demo@example.com',
-        avatar: undefined,
-      };
-      setUser(localDemoUser);
-      setDemoMode(true);
-      mockGoals.forEach(goal => addGoal(goal as any));
-      navigate('/');
-    }
+    await loginDemo({
+      logout: authService.logout,
+      demoLogin: authService.demoLogin,
+      setUser,
+      setDemoMode,
+      fetchGoals,
+      navigate,
+      onError: (error) => {
+        console.error('Demo login failed:', error);
+        setDemoMode(false);
+        alert('Demo login is unavailable right now. Please try again.');
+      },
+    });
   };
 
   const handleAuthSuccess = async (authenticatedUser: any) => {

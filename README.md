@@ -48,7 +48,12 @@ npm run dev
 - Click on the "Code" button (green button) near the top right.
 - Select the "Codespaces" tab.
 - Click on "New codespace" to launch a new Codespace environment.
+
 - Edit files directly within the Codespace and commit and push your changes once you're done.
+
+## Optional Finance Probe Flags
+
+Set `VITE_ENABLE_FINICITY_PROBE=true` to show the temporary Finicity button beside the existing Plaid entry point. The UI expects the backend to expose `/api/finicity/probe/status` and `/api/finicity/probe/connect-url`.
 
 ## What technologies are used for this project?
 
@@ -71,6 +76,4 @@ Yes, you can!
 To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
 
 Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
-
-
 

@@ -3,8 +3,8 @@ import { motion } from 'framer-motion';
 import { Shield, Plus, AlertTriangle, Landmark, DollarSign, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useProjectionStore } from '@/store/useProjectionStore';
-import { useFinanceStore } from '@/store/useFinanceStore';
 import { usePlaid } from '@/hooks/usePlaidLink';
+import { finicityService } from '@/services/finicityService';
 import { ManualAccountDialog } from './ManualAccountDialog';
 import { ManualCashflowDialog } from './ManualCashflowDialog';
 
@@ -19,6 +19,21 @@ export const AccountCoverageCard: React.FC = () => {
 
   const [showAccountDialog, setShowAccountDialog] = useState(false);
   const [showCashflowDialog, setShowCashflowDialog] = useState(false);
+  const [isOpeningFinicity, setIsOpeningFinicity] = useState(false);
+
+  const finicityEnabled = import.meta.env.VITE_ENABLE_FINICITY_PROBE === 'true';
+
+  const openFinicity = async () => {
+    setIsOpeningFinicity(true);
+    try {
+      const response = await finicityService.createConnectUrl();
+      window.open(response.connectUrl, '_blank', 'noopener,noreferrer');
+    } catch (error) {
+      console.error('Failed to open Finicity probe:', error);
+    } finally {
+      setIsOpeningFinicity(false);
+    }
+  };
 
   const totalLinked = plaidAccounts.length;
   const totalManual = manualAccounts.length;
@@ -132,6 +147,18 @@ export const AccountCoverageCard: React.FC = () => {
             <Landmark className="w-3 h-3" />
             Link Account
           </button>
+          {finicityEnabled && (
+            <button
+              onClick={openFinicity}
+              disabled={isOpeningFinicity}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium
+                bg-accent/10 text-accent border border-accent/20 hover:bg-accent/20 transition-colors disabled:opacity-50"
+              title="Temporary Finicity probe"
+            >
+              <Landmark className="w-3 h-3" />
+              {isOpeningFinicity ? 'Opening Finicity...' : 'Link via Finicity'}
+            </button>
+          )}
           <button
             onClick={() => setShowAccountDialog(true)}
             className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium

@@ -12,6 +12,15 @@ describe('resolveApiUrl', () => {
     ).toBe('http://localhost:3001');
   });
 
+  it('uses port 3001 for 0.0.0.0 development', () => {
+    expect(
+      resolveApiUrl({
+        mode: 'development',
+        origin: 'http://0.0.0.0:8080',
+      }),
+    ).toBe('http://0.0.0.0:3001');
+  });
+
   it('uses port 3001 for private network development', () => {
     expect(
       resolveApiUrl({
