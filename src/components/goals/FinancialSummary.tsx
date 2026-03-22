@@ -188,42 +188,42 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({ className })
           </div>
         </div>
 
-        {/* Stats Grid */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Stats Grid - flex-wrap so cards become rows when container is narrow or values are wide */}
+        <div className="flex flex-wrap gap-4">
           {/* Net Worth */}
-          <div className="p-3 sm:p-4 rounded-xl bg-muted/30 border border-border/30">
+          <div className="min-w-[140px] flex-1 basis-[calc(50%-0.5rem)] lg:basis-0 p-3 sm:p-4 rounded-xl bg-muted/30 border border-border/30 overflow-hidden">
             <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
-              <TrendingUp className="w-3 h-3" />
+              <TrendingUp className="w-3 h-3 flex-shrink-0" />
               Net Worth
             </p>
-            <p className={cn("text-base sm:text-lg md:text-xl lg:text-2xl font-heading font-bold neon-text-magenta", isPlaidLoading && !hasAnyAccounts && "animate-pulse")}>
+            <p className={cn("text-base sm:text-lg md:text-xl lg:text-2xl font-heading font-bold neon-text-magenta truncate", isPlaidLoading && !hasAnyAccounts && "animate-pulse")}>
               {isPlaidLoading && !hasAnyAccounts ? '...' : hasAnyAccounts ? `$${netWorth.toLocaleString()}` : '—'}
             </p>
           </div>
 
           {/* Total Assets */}
-          <div className="p-3 sm:p-4 rounded-xl bg-muted/30 border border-border/30">
+          <div className="min-w-[140px] flex-1 basis-[calc(50%-0.5rem)] lg:basis-0 p-3 sm:p-4 rounded-xl bg-muted/30 border border-border/30 overflow-hidden">
             <p className="text-xs text-muted-foreground mb-1 flex items-center gap-1">
-              <Target className="w-3 h-3" />
+              <Target className="w-3 h-3 flex-shrink-0" />
               Total Assets
             </p>
-            <p className={cn("text-base sm:text-lg md:text-xl lg:text-2xl font-heading font-bold text-success", isPlaidLoading && !hasAnyAccounts && "animate-pulse")}>
+            <p className={cn("text-base sm:text-lg md:text-xl lg:text-2xl font-heading font-bold text-success truncate", isPlaidLoading && !hasAnyAccounts && "animate-pulse")}>
               {isPlaidLoading && !hasAnyAccounts ? '...' : hasAnyAccounts ? `$${totalAssets.toLocaleString()}` : '—'}
             </p>
           </div>
 
           {/* Total Debt */}
-          <div className="p-3 sm:p-4 rounded-xl bg-muted/30 border border-border/30">
+          <div className="min-w-[140px] flex-1 basis-[calc(50%-0.5rem)] lg:basis-0 p-3 sm:p-4 rounded-xl bg-muted/30 border border-border/30 overflow-hidden">
             <p className="text-xs text-muted-foreground mb-1">Total Debt</p>
-            <p className={cn("text-base sm:text-lg md:text-xl lg:text-2xl font-heading font-bold text-destructive", isPlaidLoading && !hasAnyAccounts && "animate-pulse")}>
+            <p className={cn("text-base sm:text-lg md:text-xl lg:text-2xl font-heading font-bold text-destructive truncate", isPlaidLoading && !hasAnyAccounts && "animate-pulse")}>
               {isPlaidLoading && !hasAnyAccounts ? '...' : totalDebt > 0 ? `-$${totalDebt.toLocaleString()}` : hasAnyAccounts ? '$0' : '—'}
             </p>
           </div>
 
           {/* Goals Progress */}
-          <div className="p-3 sm:p-4 rounded-xl bg-muted/30 border border-border/30">
+          <div className="min-w-[140px] flex-1 basis-[calc(50%-0.5rem)] lg:basis-0 p-3 sm:p-4 rounded-xl bg-muted/30 border border-border/30 overflow-hidden">
             <p className="text-xs text-muted-foreground mb-1">Goals On Track</p>
-            <p className="text-base sm:text-lg md:text-xl lg:text-2xl font-heading font-bold neon-text-cyan">
+            <p className="text-base sm:text-lg md:text-xl lg:text-2xl font-heading font-bold neon-text-cyan truncate">
               {goalsOnTrack} / {financeGoals.length}
             </p>
           </div>
