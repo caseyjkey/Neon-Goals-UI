@@ -92,7 +92,7 @@ export const mockItemGoals: ItemGoal[] = [
     currency: 'USD',
     retailerUrl: 'https://amazon.com/herman-miller-aeron',
     retailerName: 'Amazon',
-    statusBadge: 'pending-search',
+    statusBadge: 'in-stock',
     searchResults: [],
     candidates: hermanMillerCandidates,
     createdAt: new Date('2025-12-10T14:00:00'),

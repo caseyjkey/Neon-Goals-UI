@@ -118,15 +118,20 @@ export const StackedItemGoalCard = React.forwardRef<
       >
         {/* Image Section */}
         <div className="relative h-40 overflow-hidden rounded-t-lg">
-          {/* Show scanner placeholder when: no valid selection, no image, or placeholder image */}
-          {!frontGoal.productImage ||
-           frontGoal.productImage?.includes('unsplash.com') ||
-           !hasValidSelection(frontGoal) ? (
+          {/* Show scanner placeholder when: actively searching with no candidates, or truly no image/data */}
+          {(frontGoal.statusBadge === 'pending_search' || frontGoal.statusBadge === 'pending-search') &&
+           (!frontGoal.candidates || frontGoal.candidates.length === 0) ? (
+            <ScannerPlaceholder
+              status="initiating"
+              signalCount={0}
+              className="h-full"
+            />
+          ) : !frontGoal.productImage &&
+           !hasValidSelection(frontGoal) &&
+           (!frontGoal.candidates || frontGoal.candidates.length === 0) ? (
             <ScannerPlaceholder
               status={
-                frontGoal.statusBadge === 'pending_search' || frontGoal.statusBadge === 'pending-search'
-                  ? 'initiating'
-                  : hasValidSelection(frontGoal)
+                hasValidSelection(frontGoal)
                   ? 'acquired'
                   : getCandidateCount(frontGoal) > 0
                   ? 'decoding'
