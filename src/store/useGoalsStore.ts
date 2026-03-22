@@ -2,10 +2,35 @@ import { create } from 'zustand';
 import type { Goal, ActionGoal } from '@/types/goals';
 import { goalsService } from '@/services/goalsService';
 import { useAuthStore } from './useAuthStore';
+import { mockGoals } from '@/data/mockGoals';
+
+const getDemoGoals = (): Goal[] => [...mockGoals];
+
+const isPersistedDemoMode = () => {
+  try {
+    const storedAuth = localStorage.getItem('goals-auth-storage');
+    if (!storedAuth) return false;
+
+    const parsedAuth = JSON.parse(storedAuth);
+    return parsedAuth?.state?.isDemoMode === true;
+  } catch (e) {
+    console.error('Failed to parse stored auth state:', e);
+    return false;
+  }
+};
 
 // Read initial state from useAppStore's localStorage
 // This keeps the slice in sync with the main store during the migration
 const getInitialState = () => {
+  if (isPersistedDemoMode()) {
+    return {
+      goals: getDemoGoals(),
+      goalsVersion: 1,
+      isLoading: false,
+      error: null,
+    };
+  }
+
   try {
     const stored = localStorage.getItem('goals-af-storage');
     if (stored) {
@@ -61,6 +86,16 @@ export const useGoalsStore = create<GoalsState>()((set, get) => ({
 
   // Goal CRUD actions
   fetchGoals: async () => {
+    if (useAuthStore.getState().isDemoMode) {
+      set({
+        goals: getDemoGoals(),
+        isLoading: false,
+        error: null,
+        goalsVersion: get().goalsVersion + 1,
+      });
+      return;
+    }
+
     try {
       set({ isLoading: true, error: null });
       const goals = await goalsService.getAll();
