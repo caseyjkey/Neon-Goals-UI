@@ -25,6 +25,7 @@ import { mockOverviewChatService } from '@/services/mockChatService';
 import { mockGoalChatService } from '@/services/mockChatService';
 import { browserUseService } from '@/services/browserUseService';
 import { plaidService } from '@/services/plaidService';
+import { normalizeChatMessage } from '@/lib/chatMessageNormalizer';
 
 // Re-export types from ./types for backward compatibility
 export type { ChatCommand, PendingCommandsState } from './types';
@@ -169,12 +170,6 @@ const defaultSettings: Settings = {
 const defaultChatState: ChatState = {
   messages: [],
   isLoading: false,
-};
-
-const toMessageContent = (value: unknown): string => {
-  if (typeof value === 'string') return value;
-  if (value == null) return '';
-  return String(value);
 };
 
 export const useAppStore = create<AppState>()(
@@ -1303,16 +1298,7 @@ export const useAppStore = create<AppState>()(
           const chat = await chatsService.getOverviewChat() as any;
           set({
             overviewChat: {
-              messages: ((chat?.messages as any[]) || []).map((m: any) => ({
-                id: m.id,
-                role: m.role === 'user' ? 'user' : 'assistant',
-                content: toMessageContent(m.content),
-                timestamp: new Date(m.createdAt || m.timestamp),
-                goalPreview: m.metadata?.goalPreview,
-                awaitingConfirmation: m.metadata?.awaitingConfirmation,
-                proposalType: m.metadata?.proposalType,
-                commands: m.metadata?.commands,
-              })),
+              messages: ((chat?.messages as any[]) || []).map((m: any) => normalizeChatMessage(m)),
               isLoading: false,
             },
           });
@@ -1525,16 +1511,7 @@ export const useAppStore = create<AppState>()(
             categoryChats: {
               ...state.categoryChats,
               [categoryId]: {
-                messages: ((chat?.messages as any[]) || []).map((m: any) => ({
-                  id: m.id,
-                  role: m.role === 'user' ? 'user' : 'assistant',
-                  content: toMessageContent(m.content),
-                  timestamp: new Date(m.createdAt || m.timestamp),
-                  goalPreview: m.metadata?.goalPreview,
-                  awaitingConfirmation: m.metadata?.awaitingConfirmation,
-                  proposalType: m.metadata?.proposalType,
-                  commands: m.metadata?.commands,
-                })),
+                messages: ((chat?.messages as any[]) || []).map((m: any) => normalizeChatMessage(m)),
                 isLoading: false,
               },
             },
@@ -1580,14 +1557,7 @@ export const useAppStore = create<AppState>()(
           console.log('[fetchGoalChat] Received chat data:', chat);
 
           const mappedMessages: Message[] = ((chat?.messages as any[]) || []).map((m: any): Message => ({
-            id: m.id,
-            role: m.role === 'user' ? 'user' : 'assistant',
-            content: toMessageContent(m.content),
-            timestamp: new Date(m.createdAt || m.timestamp),
-            goalPreview: m.metadata?.goalPreview || m.goalPreview,
-            awaitingConfirmation: m.metadata?.awaitingConfirmation ?? m.awaitingConfirmation,
-            proposalType: m.metadata?.proposalType || m.proposalType,
-            commands: m.metadata?.commands || m.commands,
+            ...normalizeChatMessage(m),
           }));
           console.log('[fetchGoalChat] Mapped messages:', mappedMessages);
 

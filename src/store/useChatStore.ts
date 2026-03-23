@@ -9,11 +9,7 @@ import { aiSpecialistChatService } from '@/services/aiSpecialistChatService';
 import { goalsService } from '@/services/goalsService';
 import { useGoalsStore } from './useGoalsStore';
 import { useAuthStore } from './useAuthStore';
-
-const normalizeChatState = (chat: any): ChatState => ({
-  messages: Array.isArray(chat?.messages) ? chat.messages : [],
-  isLoading: typeof chat?.isLoading === 'boolean' ? chat.isLoading : false,
-});
+import { normalizeChatMessage, normalizeChatState } from '@/lib/chatMessageNormalizer';
 
 const normalizeGoalChats = (goalChats: any): Record<string, ChatState> => {
   if (!goalChats || typeof goalChats !== 'object') return {};
@@ -40,23 +36,6 @@ const normalizePendingCommands = (pending: any): PendingCommandsState | null => 
     chatId,
     commands: Array.isArray(pending.commands) ? pending.commands : [],
     timestamp: typeof pending.timestamp === 'number' ? pending.timestamp : Date.now(),
-  };
-};
-
-const toMessageContent = (value: unknown): string => {
-  if (typeof value === 'string') return value;
-  if (value == null) return '';
-  return String(value);
-};
-
-const normalizeExtraction = (value: any) => {
-  if (!value || typeof value !== 'object') return undefined;
-  if (typeof value.groupId !== 'string' || !value.groupId) return undefined;
-
-  return {
-    groupId: value.groupId,
-    urls: Array.isArray(value.urls) ? value.urls.filter((u: unknown): u is string => typeof u === 'string') : [],
-    streamUrl: typeof value.streamUrl === 'string' ? value.streamUrl : '',
   };
 };
 
@@ -87,6 +66,17 @@ const toStringSet = (value: unknown): Set<string> => {
   }
 
   return new Set<string>();
+};
+
+const mergeAssistantMetadata = (message: Message, content: string, metadata: any): Message => {
+  return normalizeChatMessage({
+    ...message,
+    content,
+    metadata: {
+      ...(message.metadata || {}),
+      ...(metadata || {}),
+    },
+  });
 };
 
 // Read initial state from useAppStore's localStorage
@@ -342,10 +332,10 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
                           ...msg,
                           content: fullContent,
                           ...(chunk.done && chunk.goalPreview && {
-                            goalPreview: chunk.goalPreview,
-                            awaitingConfirmation: chunk.awaitingConfirmation,
-                          }),
-                        }
+                          goalPreview: chunk.goalPreview,
+                          awaitingConfirmation: chunk.awaitingConfirmation,
+                        }),
+                      }
                       : msg
                   ),
                   ...(chunk.done && { isLoading: false }),
@@ -387,15 +377,7 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
               ...state.creationChat,
               messages: state.creationChat.messages.map(msg =>
                 msg.id === assistantMessageId
-                  ? {
-                      ...msg,
-                      content: chatResponse.content,
-                      ...(chatResponse.commands && {
-                        goalPreview: chatResponse.commands[0]?.data ? JSON.stringify(chatResponse.commands[0].data, null, 2) : undefined,
-                        awaitingConfirmation: (chatResponse.commands?.length || 0) > 0,
-                        proposalType: chatResponse.commands?.[0]?.data?.proposalType || 'accept_decline',
-                      }),
-                    }
+                  ? mergeAssistantMetadata(msg, chatResponse.content, chatResponse)
                   : msg
               ),
               isLoading: false,
@@ -521,28 +503,20 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
 
       // Final update with metadata
       if (finalChunk.done) {
-        set((state) => ({
-          goalChats: {
-            ...state.goalChats,
-            [goalId]: {
-              ...state.goalChats[goalId]!,
-              messages: state.goalChats[goalId]!.messages.map(msg =>
-                msg.id === assistantMessageId
-                  ? {
-                      ...msg,
-                      content: fullContent,
-                      goalPreview: finalChunk.goalPreview,
-                      awaitingConfirmation: finalChunk.awaitingConfirmation,
-                      proposalType: finalChunk.proposalType,
-                      commands: finalChunk.commands,
-                      extraction: normalizeExtraction(finalChunk.extraction),
-                    }
-                  : msg
-              ),
-              isLoading: false,
+          set((state) => ({
+            goalChats: {
+              ...state.goalChats,
+              [goalId]: {
+                ...state.goalChats[goalId]!,
+                messages: state.goalChats[goalId]!.messages.map(msg =>
+                  msg.id === assistantMessageId
+                    ? mergeAssistantMetadata(msg, fullContent, finalChunk)
+                    : msg
+                ),
+                isLoading: false,
+              },
             },
-          },
-        }));
+          }));
       }
 
       set((state) => ({
@@ -592,14 +566,7 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
               ...state.goalChats[goalId]!,
               messages: state.goalChats[goalId]!.messages.map(msg =>
                 msg.id === assistantMessageId
-                  ? {
-                      ...msg,
-                      content: response.content,
-                      goalPreview: (response as any).goalPreview,
-                      awaitingConfirmation: (response as any).awaitingConfirmation,
-                      proposalType: (response as any).proposalType,
-                      commands: response.commands,
-                    }
+                  ? mergeAssistantMetadata(msg, response.content, response)
                   : msg
               ),
               isLoading: false,
@@ -646,22 +613,12 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
   fetchOverviewChat: async () => {
     try {
       const chat = await chatsService.getOverviewChat() as any;
-      set({
-        overviewChat: {
-          messages: ((chat?.messages as any[]) || []).map((m: any) => ({
-            id: m.id,
-            role: m.role === 'user' ? 'user' : 'assistant',
-            content: toMessageContent(m.content),
-            timestamp: new Date(m.createdAt || m.timestamp),
-            goalPreview: m.metadata?.goalPreview,
-            awaitingConfirmation: m.metadata?.awaitingConfirmation,
-            proposalType: m.metadata?.proposalType,
-            commands: m.metadata?.commands,
-            extraction: normalizeExtraction(m.metadata?.extraction),
-          })),
-          isLoading: false,
-        },
-      });
+          set({
+            overviewChat: {
+              messages: ((chat?.messages as any[]) || []).map((m: any) => normalizeChatMessage(m)),
+              isLoading: false,
+            },
+          });
     } catch (error) {
       console.error('Failed to fetch overview chat:', error);
       set({
@@ -718,26 +675,17 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
           finalChunk = chunk;
         }
 
-        set((state) => ({
-          overviewChat: {
-            ...state.overviewChat!,
-            messages: state.overviewChat!.messages.map(msg =>
-              msg.id === assistantMessageId
-                ? {
-                    ...msg,
-                    content: fullContent,
-                    ...(chunk.done && {
-                      goalPreview: (chunk as any).goalPreview,
-                      awaitingConfirmation: (chunk as any).awaitingConfirmation,
-                      proposalType: (chunk as any).proposalType,
-                      extraction: (chunk as any).extraction,
-                    }),
-                  }
-                : msg
-            ),
-            ...(chunk.done && { isLoading: false }),
-          },
-        }));
+            set((state) => ({
+              overviewChat: {
+                ...state.overviewChat!,
+                messages: state.overviewChat!.messages.map(msg =>
+                  msg.id === assistantMessageId
+                    ? mergeAssistantMetadata(msg, fullContent, chunk)
+                    : msg
+                ),
+                ...(chunk.done && { isLoading: false }),
+              },
+            }));
       }
 
       set((state) => ({
@@ -810,25 +758,15 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
   fetchCategoryChat: async (categoryId: 'items' | 'finances' | 'actions') => {
     try {
       const chat = await chatsService.getCategoryChat(categoryId) as any;
-      set((state) => ({
-        categoryChats: {
-          ...state.categoryChats,
-          [categoryId]: {
-            messages: ((chat?.messages as any[]) || []).map((m: any) => ({
-              id: m.id,
-              role: m.role === 'user' ? 'user' : 'assistant',
-              content: toMessageContent(m.content),
-              timestamp: new Date(m.createdAt || m.timestamp),
-              goalPreview: m.metadata?.goalPreview,
-              awaitingConfirmation: m.metadata?.awaitingConfirmation,
-              proposalType: m.metadata?.proposalType,
-              commands: m.metadata?.commands,
-              extraction: normalizeExtraction(m.metadata?.extraction),
-            })),
-            isLoading: false,
-          },
-        },
-      }));
+          set((state) => ({
+            categoryChats: {
+              ...state.categoryChats,
+              [categoryId]: {
+                messages: ((chat?.messages as any[]) || []).map((m: any) => normalizeChatMessage(m)),
+                isLoading: false,
+              },
+            },
+          }));
     } catch (error) {
       console.error(`Failed to fetch ${categoryId} chat:`, error);
       set((state) => ({
@@ -934,19 +872,11 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
             ...state.categoryChats,
             [categoryId]: {
               ...state.categoryChats[categoryId]!,
-              messages: state.categoryChats[categoryId]!.messages.map(msg =>
-                msg.id === assistantMessageId
-                  ? {
-                      ...msg,
-                      content: fullContent,
-                      goalPreview: (finalChunk as any).goalPreview,
-                      awaitingConfirmation: (finalChunk as any).awaitingConfirmation,
-                      proposalType: (finalChunk as any).proposalType,
-                      commands: finalChunk.commands,
-                      extraction: (finalChunk as any).extraction,
-                    }
-                  : msg
-              ),
+                  messages: state.categoryChats[categoryId]!.messages.map(msg =>
+                    msg.id === assistantMessageId
+                      ? mergeAssistantMetadata(msg, fullContent, finalChunk)
+                      : msg
+                  ),
               isLoading: false,
             },
           },
@@ -1029,24 +959,11 @@ export const useChatStore = create<ChatStoreState>()((set, get) => ({
   fetchGoalChat: async (goalId: string) => {
     try {
       const chat = await chatsService.getGoalChat(goalId) as any;
-
-      const mappedMessages: Message[] = ((chat?.messages as any[]) || []).map((m: any): Message => ({
-        id: m.id,
-        role: m.role === 'user' ? 'user' : 'assistant',
-        content: toMessageContent(m.content),
-        timestamp: new Date(m.createdAt || m.timestamp),
-        goalPreview: m.metadata?.goalPreview || m.goalPreview,
-        awaitingConfirmation: m.metadata?.awaitingConfirmation ?? m.awaitingConfirmation,
-        proposalType: m.metadata?.proposalType || m.proposalType,
-        commands: m.metadata?.commands || m.commands,
-        extraction: normalizeExtraction(m.metadata?.extraction),
-      }));
-
       set((state) => ({
         goalChats: {
           ...state.goalChats,
           [goalId]: {
-            messages: mappedMessages,
+            messages: ((chat?.messages as any[]) || []).map((m: any) => normalizeChatMessage(m)),
             isLoading: false,
           },
         },

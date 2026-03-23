@@ -4,6 +4,8 @@
  * from agent response messages.
  */
 
+import type { Message } from '@/types/goals';
+
 export type RedirectTarget =
   | { type: 'category'; categoryId: 'items' | 'finances' | 'actions' }
   | { type: 'goal'; goalId: string }
@@ -21,6 +23,76 @@ const CATEGORY_LABELS: Record<string, string> = {
   items: 'Items specialist',
   finances: 'Finance specialist',
   actions: 'Actions specialist',
+};
+
+const normalizeTarget = (value: unknown): RedirectTarget | null => {
+  if (typeof value === 'string') {
+    if (value === 'overview') return { type: 'overview' };
+
+    const [kind, rawId] = value.split(':', 2);
+    if (kind === 'category' && rawId && ['items', 'finances', 'actions'].includes(rawId)) {
+      return { type: 'category', categoryId: rawId as 'items' | 'finances' | 'actions' };
+    }
+    if (kind === 'goal' && rawId) {
+      return { type: 'goal', goalId: rawId };
+    }
+    return null;
+  }
+
+  if (!value || typeof value !== 'object') return null;
+
+  const target = value as Record<string, any>;
+
+  if (target.type === 'overview') {
+    return { type: 'overview' };
+  }
+
+  if (target.type === 'category' && typeof target.categoryId === 'string' && ['items', 'finances', 'actions'].includes(target.categoryId)) {
+    return { type: 'category', categoryId: target.categoryId };
+  }
+
+  if (target.type === 'goal' && typeof target.goalId === 'string' && target.goalId) {
+    return { type: 'goal', goalId: target.goalId };
+  }
+
+  if (typeof target.categoryId === 'string' && ['items', 'finances', 'actions'].includes(target.categoryId)) {
+    return { type: 'category', categoryId: target.categoryId };
+  }
+
+  if (typeof target.goalId === 'string' && target.goalId) {
+    return { type: 'goal', goalId: target.goalId };
+  }
+
+  if (target.redirectTarget) {
+    return normalizeTarget(target.redirectTarget);
+  }
+
+  return null;
+};
+
+const normalizeRedirectProposal = (value: unknown): ParsedRedirect | null => {
+  if (!value || typeof value !== 'object') return null;
+
+  const proposal = value as Record<string, any>;
+  const target = normalizeTarget(proposal.target ?? proposal.redirectTarget ?? proposal.destination);
+  if (!target) return null;
+
+  const message = typeof proposal.message === 'string' && proposal.message
+    ? proposal.message
+    : 'Let me redirect you.';
+
+  let label = typeof proposal.label === 'string' && proposal.label ? proposal.label : '';
+  if (!label) {
+    if (target.type === 'category') {
+      label = CATEGORY_LABELS[target.categoryId] || target.categoryId;
+    } else if (target.type === 'goal') {
+      label = proposal.goalTitle || 'Goal view';
+    } else {
+      label = 'Overview';
+    }
+  }
+
+  return { target, message, label };
 };
 
 /**
@@ -68,6 +140,23 @@ export function parseRedirectCommand(responseText: string): ParsedRedirect | nul
   } catch {
     return null;
   }
+}
+
+/**
+ * Resolve redirect metadata from an assistant message.
+ * Explicit redirectProposal metadata wins; legacy command text is the fallback.
+ */
+export function resolveMessageRedirect(message: Pick<Message, 'content' | 'redirectProposal' | 'metadata'>): ParsedRedirect | null {
+  const redirectTarget = message.metadata?.redirectTarget ?? message.metadata?.redirect_target;
+  const metadataRedirect = normalizeRedirectProposal(
+    message.redirectProposal
+      ?? message.metadata?.redirectProposal
+      ?? (redirectTarget ? { redirectTarget } : undefined),
+  );
+
+  if (metadataRedirect) return metadataRedirect;
+
+  return parseRedirectCommand(message.content);
 }
 
 /**

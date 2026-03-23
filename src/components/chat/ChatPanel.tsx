@@ -14,7 +14,7 @@ import remarkGfm from 'remark-gfm';
 import { formatExtractionResultsForAI } from '@/hooks/useExtraction';
 import { ExtractionMessageCard } from '@/components/extraction/ExtractionMessageCard';
 import type { ExtractionResult } from '@/services/extractionService';
-import { parseRedirectCommand, stripRedirectCommand } from '@/lib/redirectParser';
+import { resolveMessageRedirect, stripRedirectCommand } from '@/lib/redirectParser';
 import { RedirectCard } from '@/components/chat/RedirectCard';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -121,7 +121,7 @@ export const ChatPanel: React.FC<ChatPanelProps> = ({
   };
 
   // Handle redirect navigation from agent redirect commands
-  const handleRedirectGo = useCallback((redirect: ReturnType<typeof parseRedirectCommand>) => {
+  const handleRedirectGo = useCallback((redirect: ReturnType<typeof resolveMessageRedirect>) => {
     if (!redirect) return;
     const { target, label } = redirect;
 
@@ -661,14 +661,14 @@ const MessageBubble = React.forwardRef<
     isLatestProposal?: boolean;
     enableLiveExtraction?: boolean;
     onExtractionComplete?: (groupId: string, results: ExtractionResult[]) => void;
-    onRedirectGo?: (redirect: ReturnType<typeof parseRedirectCommand>) => void;
+    onRedirectGo?: (redirect: ReturnType<typeof resolveMessageRedirect>) => void;
   }
 >(({ message, messageId, onConfirm, onEdit, onCancel, onAccept, onDecline, isExiting, isLatestProposal = true, enableLiveExtraction = false, onExtractionComplete, onRedirectGo }, ref) => {
   const [hovered, setHovered] = useState(false);
   const isUser = message.role === 'user';
   const hasGoalPreview = message.goalPreview && message.awaitingConfirmation;
   const showProposalButtons = message.awaitingConfirmation;
-  const redirect = !isUser ? parseRedirectCommand(message.content) : null;
+  const redirect = !isUser ? resolveMessageRedirect(message) : null;
   const displayContent = redirect ? stripRedirectCommand(message.content) : message.content;
   // Get isProposalHandled from store
   const { isProposalHandled } = useChatStore();

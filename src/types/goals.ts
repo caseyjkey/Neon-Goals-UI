@@ -146,10 +146,58 @@ export interface SettingsOptions {
 
 export type ProposalType = 'confirm_edit_cancel' | 'accept_decline';
 
+export type RedirectOutcome = 'followed' | 'dismissed';
+export type ProposalOutcome = 'accepted' | 'declined' | 'edited_before_accept' | 'ignored';
+
+export interface RedirectTargetCategory {
+  type: 'category';
+  categoryId: 'items' | 'finances' | 'actions';
+}
+
+export interface RedirectTargetGoal {
+  type: 'goal';
+  goalId: string;
+}
+
+export interface RedirectTargetOverview {
+  type: 'overview';
+}
+
+export type RedirectTarget = RedirectTargetCategory | RedirectTargetGoal | RedirectTargetOverview;
+
+export interface RedirectProposal {
+  target: RedirectTarget;
+  message: string;
+  label: string;
+}
+
+export interface ProposalDecisionRecord {
+  decision?: string;
+  outcome?: string;
+  status?: string;
+  decidedAt?: Date | string;
+  [key: string]: any;
+}
+
 export interface ExtractionInfo {
   groupId: string;
   urls: string[];
   streamUrl: string;
+}
+
+export interface MessageMetadata {
+  goalPreview?: string;
+  awaitingConfirmation?: boolean;
+  proposalType?: ProposalType;
+  commands?: Array<{ type: string; data: any }>;
+  extraction?: ExtractionInfo;
+  redirectProposal?: RedirectProposal;
+  proposalDecision?: ProposalDecisionRecord;
+  proposalHistory?: ProposalDecisionRecord[];
+  proposalOutcome?: ProposalOutcome;
+  redirectOutcome?: RedirectOutcome;
+  handled?: boolean;
+  [key: string]: any;
 }
 
 export interface Message {
@@ -162,6 +210,12 @@ export interface Message {
   proposalType?: ProposalType;
   commands?: Array<{ type: string; data: any }>;
   extraction?: ExtractionInfo;
+  redirectProposal?: RedirectProposal;
+  proposalDecision?: ProposalDecisionRecord;
+  proposalHistory?: ProposalDecisionRecord[];
+  proposalOutcome?: ProposalOutcome;
+  redirectOutcome?: RedirectOutcome;
+  metadata?: MessageMetadata;
 }
 
 export interface ChatState {
