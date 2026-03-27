@@ -93,15 +93,20 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({ className })
   const syncToast = useSyncToast();
   const { open: openPlaidLink, isLoading: isPlaidLoading, error: plaidError, accounts, pendingAccounts, syncAccount, removeAccount, isSyncing, fetchAccounts } = usePlaid();
   const finicityEnabled = import.meta.env.VITE_ENABLE_FINICITY_PROBE === 'true';
+  const refreshProjectionData = React.useCallback(async () => {
+    await Promise.all([
+      fetchOverview(),
+      fetchCashflow(),
+      fetchGoalForecasts(),
+    ]);
+  }, [fetchOverview, fetchCashflow, fetchGoalForecasts]);
 
   // Fetch projection data on mount
   useEffect(() => {
-    fetchOverview();
-    fetchCashflow();
-    fetchGoalForecasts();
+    refreshProjectionData();
     fetchManualAccounts();
     fetchManualCashflows();
-  }, []);
+  }, [refreshProjectionData, fetchManualAccounts, fetchManualCashflows]);
 
   const financeGoals = goals.filter(
     (goal): goal is FinanceGoal => goal.type === 'finance' && goal.status === 'active'
@@ -138,12 +143,18 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({ className })
       }
       // Sync finance goals
       financeGoals.forEach(goal => syncFinanceGoal(goal.id, goals));
+      await refreshProjectionData();
       syncToast.showSuccess(`${accounts.length} accounts synced`);
     } catch (error) {
       syncToast.showError('Could not sync accounts');
     } finally {
       setIsSyncingAll(false);
     }
+  };
+
+  const handleAccountSync = async (accountId: string) => {
+    await syncAccount(accountId);
+    await refreshProjectionData();
   };
 
   const handleAccountClick = (accountId: string) => {
@@ -390,7 +401,7 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({ className })
                 })}
                 emptyType="cash"
                 onAddAccount={openAddDialog}
-                onSync={syncAccount}
+                onSync={handleAccountSync}
                 onClick={handleAccountClick}
                 isSyncing={isSyncing}
                 isPlaidLoading={isPlaidLoading}
@@ -407,7 +418,7 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({ className })
                 })}
                 emptyType="investments"
                 onAddAccount={openAddDialog}
-                onSync={syncAccount}
+                onSync={handleAccountSync}
                 onClick={handleAccountClick}
                 isSyncing={isSyncing}
                 isPlaidLoading={isPlaidLoading}
@@ -424,7 +435,7 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({ className })
                 })}
                 emptyType="credit"
                 onAddAccount={openAddDialog}
-                onSync={syncAccount}
+                onSync={handleAccountSync}
                 onClick={handleAccountClick}
                 isSyncing={isSyncing}
                 isPlaidLoading={isPlaidLoading}

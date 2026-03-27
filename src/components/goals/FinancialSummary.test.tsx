@@ -9,6 +9,11 @@ const fetchAccounts = vi.fn();
 const showSyncing = vi.fn();
 const showSuccess = vi.fn();
 const showError = vi.fn();
+const fetchOverview = vi.fn();
+const fetchCashflow = vi.fn();
+const fetchGoalForecasts = vi.fn();
+const fetchManualAccounts = vi.fn();
+const fetchManualCashflows = vi.fn();
 
 vi.mock('@/store/useGoalsStore', () => ({
   useGoalsStore: () => ({ goals: [] }),
@@ -21,11 +26,11 @@ vi.mock('@/store/useFinanceStore', () => ({
 vi.mock('@/store/useProjectionStore', () => ({
   useProjectionStore: (selector: (state: unknown) => unknown) =>
     selector({
-      fetchOverview: vi.fn(),
-      fetchCashflow: vi.fn(),
-      fetchGoalForecasts: vi.fn(),
-      fetchManualAccounts: vi.fn(),
-      fetchManualCashflows: vi.fn(),
+      fetchOverview,
+      fetchCashflow,
+      fetchGoalForecasts,
+      fetchManualAccounts,
+      fetchManualCashflows,
     }),
 }));
 
@@ -112,6 +117,11 @@ describe('FinancialSummary add account modal', () => {
     showSyncing.mockReset();
     showSuccess.mockReset();
     showError.mockReset();
+    fetchOverview.mockReset();
+    fetchCashflow.mockReset();
+    fetchGoalForecasts.mockReset();
+    fetchManualAccounts.mockReset();
+    fetchManualCashflows.mockReset();
   });
 
   it('opens the shared add-account chooser from an account section plus button', () => {
@@ -137,5 +147,24 @@ describe('FinancialSummary add account modal', () => {
       expect(showError).toHaveBeenCalledWith('Could not sync accounts');
     });
     expect(showSuccess).not.toHaveBeenCalled();
+  });
+
+  it('refetches projections after a successful bulk sync', async () => {
+    syncAccount.mockResolvedValueOnce(undefined);
+
+    render(<FinancialSummary />);
+
+    fetchOverview.mockClear();
+    fetchCashflow.mockClear();
+    fetchGoalForecasts.mockClear();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sync all accounts' }));
+
+    await waitFor(() => {
+      expect(showSuccess).toHaveBeenCalledWith('1 accounts synced');
+    });
+    expect(fetchOverview).toHaveBeenCalledTimes(1);
+    expect(fetchCashflow).toHaveBeenCalledTimes(1);
+    expect(fetchGoalForecasts).toHaveBeenCalledTimes(1);
   });
 });
