@@ -17,7 +17,6 @@ import { ProjectionChartCard } from '@/components/projections/ProjectionChartCar
 import { GoalForecastCard } from '@/components/projections/GoalForecastCard';
 import { RecurringCashflowCard } from '@/components/projections/RecurringCashflowCard';
 import { ScenarioControls } from '@/components/projections/ScenarioControls';
-import { AccountCoverageCard } from '@/components/projections/AccountCoverageCard';
 import { AccountLinkDialog } from '@/components/projections/AccountLinkDialog';
 import { ManualAccountDialog } from '@/components/projections/ManualAccountDialog';
 import { ManualCashflowDialog } from '@/components/projections/ManualCashflowDialog';
@@ -90,6 +89,7 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({ className })
   const [showAccountDialog, setShowAccountDialog] = useState(false);
   const [showCashflowDialog, setShowCashflowDialog] = useState(false);
   const [isOpeningFinicity, setIsOpeningFinicity] = useState(false);
+  const [isSyncingAll, setIsSyncingAll] = useState(false);
   const syncToast = useSyncToast();
   const { open: openPlaidLink, isLoading: isPlaidLoading, error: plaidError, accounts, pendingAccounts, syncAccount, removeAccount, isSyncing, fetchAccounts } = usePlaid();
   const finicityEnabled = import.meta.env.VITE_ENABLE_FINICITY_PROBE === 'true';
@@ -124,6 +124,11 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({ className })
   }).length;
 
   const syncAll = async () => {
+    if (isSyncingAll) {
+      return;
+    }
+
+    setIsSyncingAll(true);
     syncToast.showSyncing('Updating all accounts...');
 
     try {
@@ -136,6 +141,8 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({ className })
       syncToast.showSuccess(`${accounts.length} accounts synced`);
     } catch (error) {
       syncToast.showError('Could not sync accounts');
+    } finally {
+      setIsSyncingAll(false);
     }
   };
 
@@ -238,14 +245,22 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({ className })
             </div>
           </div>
           
-          <div className="flex flex-col gap-1">
-            <button
-              onClick={syncAll}
-              className="flex items-center justify-center p-2.5 rounded-lg bg-muted/50 text-foreground hover:bg-muted transition-colors min-w-[44px] min-h-[44px]"
-              aria-label="Sync all accounts"
-            >
-              <RefreshCw className="w-4 h-4" />
-            </button>
+          <div className="flex items-center gap-2">
+            <div className={cn("relative rounded-lg", isSyncingAll && "p-[1px] bg-[conic-gradient(from_0deg,rgba(34,211,238,0.15),rgba(244,114,182,0.85),rgba(34,211,238,0.15))] animate-spin")}>
+              <button
+                onClick={syncAll}
+                disabled={isSyncingAll}
+                className={cn(
+                  "relative z-10 flex items-center justify-center p-2.5 rounded-lg min-w-[44px] min-h-[44px] transition-colors",
+                  isSyncingAll
+                    ? "cursor-not-allowed bg-background/90 text-primary"
+                    : "bg-muted/50 text-foreground hover:bg-muted"
+                )}
+                aria-label="Sync all accounts"
+              >
+                <RefreshCw className={cn("w-4 h-4", isSyncingAll && "animate-spin")} />
+              </button>
+            </div>
             <button
               onClick={() => setShowAccounts(!showAccounts)}
               className="flex items-center justify-center p-2.5 rounded-lg bg-muted/50 text-foreground hover:bg-muted transition-colors min-w-[44px] min-h-[44px]"
@@ -344,7 +359,6 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({ className })
           <GoalForecastCard />
           <RecurringCashflowCard onSelectItem={handleRecurringItemSelect} />
           <ScenarioControls />
-          <AccountCoverageCard onOpenAddDialog={openAddDialog} />
         </div>
       </div>
 
