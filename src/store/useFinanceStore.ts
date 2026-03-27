@@ -81,6 +81,7 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
       await get().fetchPlaidAccounts();
     } catch (err) {
       console.error('[useFinanceStore] Failed to sync Plaid account:', err);
+      throw err;
     }
   },
 

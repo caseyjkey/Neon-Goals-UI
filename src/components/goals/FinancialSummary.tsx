@@ -246,7 +246,13 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({ className })
           </div>
           
           <div className="flex items-center gap-2">
-            <div className={cn("relative rounded-lg", isSyncingAll && "p-[1px] bg-[conic-gradient(from_0deg,rgba(34,211,238,0.15),rgba(244,114,182,0.85),rgba(34,211,238,0.15))] animate-spin")}>
+            <div className="relative rounded-lg">
+              {isSyncingAll && (
+                <div className="pointer-events-none absolute inset-0 rounded-lg overflow-hidden">
+                  <div className="absolute inset-[-80%] animate-spin bg-[conic-gradient(from_0deg,rgba(34,211,238,0.15),rgba(244,114,182,0.9),rgba(34,211,238,0.15))]" />
+                  <div className="absolute inset-[1px] rounded-[7px] bg-background/90" />
+                </div>
+              )}
               <button
                 onClick={syncAll}
                 disabled={isSyncingAll}

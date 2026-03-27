@@ -295,6 +295,7 @@ export const usePlaid = (): UsePlaidLinkReturn => {
       await syncPlaidAccount(accountId);
     } catch (err) {
       console.error('Failed to sync account:', err);
+      throw err;
     } finally {
       setIsSyncing(null);
     }

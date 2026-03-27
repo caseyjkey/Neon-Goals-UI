@@ -1,11 +1,14 @@
 import React from 'react';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const openPlaidLink = vi.fn();
 const syncAccount = vi.fn();
 const removeAccount = vi.fn();
 const fetchAccounts = vi.fn();
+const showSyncing = vi.fn();
+const showSuccess = vi.fn();
+const showError = vi.fn();
 
 vi.mock('@/store/useGoalsStore', () => ({
   useGoalsStore: () => ({ goals: [] }),
@@ -88,9 +91,9 @@ vi.mock('@/components/ui/SyncToast', () => ({
     status: 'idle',
     message: '',
     close: vi.fn(),
-    showSyncing: vi.fn(),
-    showSuccess: vi.fn(),
-    showError: vi.fn(),
+    showSyncing,
+    showSuccess,
+    showError,
   }),
 }));
 
@@ -105,6 +108,10 @@ import { FinancialSummary } from './FinancialSummary';
 describe('FinancialSummary add account modal', () => {
   beforeEach(() => {
     openPlaidLink.mockReset();
+    syncAccount.mockReset();
+    showSyncing.mockReset();
+    showSuccess.mockReset();
+    showError.mockReset();
   });
 
   it('opens the shared add-account chooser from an account section plus button', () => {
@@ -117,5 +124,18 @@ describe('FinancialSummary add account modal', () => {
     expect(screen.getByRole('button', { name: /Link with Plaid/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Add Manual Account/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Manual Cashflow/ })).toBeInTheDocument();
+  });
+
+  it('shows an error toast when bulk sync fails', async () => {
+    syncAccount.mockRejectedValueOnce(new Error('Internal server error'));
+
+    render(<FinancialSummary />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sync all accounts' }));
+
+    await waitFor(() => {
+      expect(showError).toHaveBeenCalledWith('Could not sync accounts');
+    });
+    expect(showSuccess).not.toHaveBeenCalled();
   });
 });
