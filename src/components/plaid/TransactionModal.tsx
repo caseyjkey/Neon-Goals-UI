@@ -79,7 +79,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
         setTransactions(transactionResult.value);
       } else {
         setTransactions([]);
-        setError('Could not load stored transactions');
+        setError('Could not load transaction history');
       }
 
       if (balanceResult.status === 'fulfilled') {
@@ -259,7 +259,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                   <AlertCircle className="w-8 h-8 text-muted-foreground mb-2" />
                   <p className="text-sm text-muted-foreground">{error}</p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Refresh the account to sync the latest stored transaction history
+                    The projection was computed earlier, but this follow-up fetch for the account failed
                   </p>
                 </div>
               ) : transactions.length === 0 ? (
