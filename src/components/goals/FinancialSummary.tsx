@@ -534,7 +534,7 @@ const AccountSection: React.FC<AccountSectionProps> = ({
       </div>
 
       {accounts.length > 0 || hasPending ? (
-        <div className="grid grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 2xl:grid-cols-2 min-[1800px]:grid-cols-3 gap-3">
           {accounts.map(account => (
             <PlaidAccountCard
               key={account.id}
