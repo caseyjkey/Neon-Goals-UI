@@ -114,17 +114,24 @@ export const PlaidAccountCard: React.FC<PlaidAccountCardProps> = ({
 
       {/* Sync Button */}
       {onSync && (
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            onSync(account.id);
-          }}
-          disabled={isSyncing}
-          className="p-1.5 rounded-lg bg-muted/50 text-muted-foreground hover:text-primary hover:bg-muted transition-colors"
-          aria-label="Sync account"
-        >
-          <RefreshCw className={cn("w-3.5 h-3.5", isSyncing && "animate-spin")} />
-        </button>
+        <div className={cn("relative rounded-lg", isSyncing && "p-[1px] bg-[conic-gradient(from_0deg,rgba(34,211,238,0.15),rgba(244,114,182,0.85),rgba(34,211,238,0.15))] animate-spin")}>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onSync(account.id);
+            }}
+            disabled={isSyncing}
+            className={cn(
+              "relative z-10 p-1.5 rounded-lg bg-muted/50 text-muted-foreground transition-colors",
+              isSyncing
+                ? "cursor-not-allowed bg-background/90 text-primary"
+                : "hover:text-primary hover:bg-muted"
+            )}
+            aria-label="Sync account"
+          >
+            <RefreshCw className={cn("w-3.5 h-3.5", isSyncing && "animate-spin")} />
+          </button>
+        </div>
       )}
 
       {/* Balance */}

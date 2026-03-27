@@ -18,8 +18,27 @@ const confidenceColor = (c: RecurringItem['confidence']) => {
   }
 };
 
-const CashflowRow: React.FC<{ item: RecurringItem }> = ({ item }) => (
-  <div className="flex items-center justify-between py-2 border-b border-border/10 last:border-0">
+interface RecurringCashflowCardProps {
+  onSelectItem?: (item: RecurringItem, direction: 'income' | 'expense') => void;
+}
+
+const CashflowRow: React.FC<{
+  item: RecurringItem;
+  direction: 'income' | 'expense';
+  onSelectItem?: (item: RecurringItem, direction: 'income' | 'expense') => void;
+}> = ({ item, direction, onSelectItem }) => (
+  <motion.button
+    type="button"
+    whileTap={{ scale: item.accountId ? 0.985 : 1 }}
+    onClick={() => item.accountId && onSelectItem?.(item, direction)}
+    className={cn(
+      'group relative flex w-full items-center justify-between rounded-xl border border-transparent py-2 px-2 text-left transition-all',
+      item.accountId
+        ? 'cursor-pointer hover:border-primary/30 hover:bg-[linear-gradient(135deg,rgba(255,255,255,0.06),rgba(34,211,238,0.12),rgba(244,114,182,0.12))] hover:shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_12px_32px_rgba(34,211,238,0.08)]'
+        : 'cursor-default',
+      'border-b border-border/10 last:border-b-0'
+    )}
+  >
     <div className="flex-1 min-w-0">
       <p className="text-sm text-foreground truncate">{item.label}</p>
       <div className="flex items-center gap-2 mt-0.5">
@@ -28,17 +47,17 @@ const CashflowRow: React.FC<{ item: RecurringItem }> = ({ item }) => (
           {item.confidence}
         </span>
         <span className="text-[10px] text-muted-foreground/50">
-          {item.source === 'linked' ? 'Linked' : 'Manual'}
+          {item.source === 'linked' ? item.accountName ?? 'Linked account' : 'Manual'}
         </span>
       </div>
     </div>
     <span className="text-sm font-medium text-foreground ml-2">
       {formatAmount(item.amount)}
     </span>
-  </div>
+  </motion.button>
 );
 
-export const RecurringCashflowCard: React.FC = () => {
+export const RecurringCashflowCard: React.FC<RecurringCashflowCardProps> = ({ onSelectItem }) => {
   const cashflow = useProjectionStore((s) => s.cashflow);
   const isLoading = useProjectionStore((s) => s.isLoadingCashflow);
   const isMobile = useIsMobile();
@@ -100,7 +119,7 @@ export const RecurringCashflowCard: React.FC = () => {
                 </div>
                 {cashflow.recurringIncome.length > 0 ? (
                   cashflow.recurringIncome.map((item) => (
-                    <CashflowRow key={item.id} item={item} />
+                    <CashflowRow key={item.id} item={item} direction="income" onSelectItem={onSelectItem} />
                   ))
                 ) : (
                   <p className="text-xs text-muted-foreground/50 py-2">
@@ -119,7 +138,7 @@ export const RecurringCashflowCard: React.FC = () => {
                 </div>
                 {cashflow.recurringExpenses.length > 0 ? (
                   cashflow.recurringExpenses.map((item) => (
-                    <CashflowRow key={item.id} item={item} />
+                    <CashflowRow key={item.id} item={item} direction="expense" onSelectItem={onSelectItem} />
                   ))
                 ) : (
                   <p className="text-xs text-muted-foreground/50 py-2">

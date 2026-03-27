@@ -923,7 +923,10 @@ export const useAppStore = create<AppState>()(
         try {
           const isDemo = get().isDemoMode;
           if (!isDemo) {
-            await plaidService.syncAccount(accountId);
+            await Promise.all([
+              plaidService.syncAccount(accountId),
+              plaidService.syncTransactions(accountId),
+            ]);
           }
           // Refresh all accounts after sync
           await get().fetchPlaidAccounts();

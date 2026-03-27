@@ -36,6 +36,9 @@ export interface RecurringItem {
   confidence: 'high' | 'medium' | 'low';
   source: 'linked' | 'manual';
   category?: string;
+  accountId?: string;
+  accountName?: string;
+  sourceTransactionIds?: string[];
 }
 
 export interface CashflowSummary {

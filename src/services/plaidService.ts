@@ -22,7 +22,8 @@ export interface PlaidTransaction {
   name: string;
   amount: number;
   date: string;
-  category?: string[];
+  category?: string[] | string;
+  categories?: string[];
   pending: boolean;
   merchantName?: string;
   paymentChannel?: string;
@@ -76,6 +77,11 @@ export const plaidService = {
     return apiClient.post<PlaidAccount>(`/plaid/sync/${accountId}`);
   },
 
+  /** Sync stored transactions for an account */
+  async syncTransactions(accountId: string): Promise<{ stored: number; skipped: number }> {
+    return apiClient.post<{ stored: number; skipped: number }>(`/plaid/sync/${accountId}/transactions`);
+  },
+
   /** Link an account to a finance goal */
   async linkToGoal(accountId: string, goalId: string): Promise<void> {
     return apiClient.post('/plaid/link-to-goal', { accountId, goalId });
@@ -90,6 +96,14 @@ export const plaidService = {
   async getTransactions(accountId: string): Promise<PlaidTransaction[]> {
     const response = await apiClient.get<{ transactions: PlaidTransaction[] } | PlaidTransaction[]>(
       `/plaid/accounts/${accountId}/transactions`
+    );
+    return Array.isArray(response) ? response : response.transactions || [];
+  },
+
+  /** Get stored transactions for an account */
+  async getStoredTransactions(accountId: string, limit = 100): Promise<PlaidTransaction[]> {
+    const response = await apiClient.get<{ transactions: PlaidTransaction[] } | PlaidTransaction[]>(
+      `/plaid/accounts/${accountId}/transactions/stored?limit=${limit}`
     );
     return Array.isArray(response) ? response : response.transactions || [];
   },

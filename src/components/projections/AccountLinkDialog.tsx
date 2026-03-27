@@ -15,6 +15,7 @@ interface Props {
   onOpenPlaid: () => void;
   onOpenFinicity: () => void;
   onOpenManualAccount: () => void;
+  onOpenManualCashflow: () => void;
   isPlaidLoading: boolean;
   isFinicityLoading: boolean;
   finicityEnabled: boolean;
@@ -71,6 +72,7 @@ export const AccountLinkDialog: React.FC<Props> = ({
   onOpenPlaid,
   onOpenFinicity,
   onOpenManualAccount,
+  onOpenManualCashflow,
   isPlaidLoading,
   isFinicityLoading,
   finicityEnabled,
@@ -110,6 +112,13 @@ export const AccountLinkDialog: React.FC<Props> = ({
             description="Enter an account balance directly when linking is not available."
             icon={<Plus className="h-4 w-4" />}
             onClick={onOpenManualAccount}
+          />
+
+          <AccountOption
+            title="Manual Cashflow"
+            description="Add recurring income or expenses that should affect projections."
+            icon={<Plus className="h-4 w-4" />}
+            onClick={onOpenManualCashflow}
           />
         </div>
       </DialogContent>

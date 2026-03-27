@@ -1,52 +1,21 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Shield, AlertTriangle, Landmark, DollarSign, Trash2 } from 'lucide-react';
+import { Shield, AlertTriangle, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useProjectionStore } from '@/store/useProjectionStore';
 import { usePlaid } from '@/hooks/usePlaidLink';
-import { finicityService } from '@/services/finicityService';
-import { AccountLinkDialog } from './AccountLinkDialog';
-import { ManualAccountDialog } from './ManualAccountDialog';
-import { ManualCashflowDialog } from './ManualCashflowDialog';
 
-export const AccountCoverageCard: React.FC = () => {
+interface AccountCoverageCardProps {
+  onOpenAddDialog?: () => void;
+}
+
+export const AccountCoverageCard: React.FC<AccountCoverageCardProps> = () => {
   const overview = useProjectionStore((s) => s.overview);
   const manualAccounts = useProjectionStore((s) => s.manualAccounts);
   const manualCashflows = useProjectionStore((s) => s.manualCashflows);
   const removeManualAccount = useProjectionStore((s) => s.removeManualAccount);
   const removeManualCashflow = useProjectionStore((s) => s.removeManualCashflow);
   const { accounts: plaidAccounts } = usePlaid();
-  const { open: openPlaidLink, isLoading: isPlaidLoading } = usePlaid();
-
-  const [showLinkDialog, setShowLinkDialog] = useState(false);
-  const [showAccountDialog, setShowAccountDialog] = useState(false);
-  const [showCashflowDialog, setShowCashflowDialog] = useState(false);
-  const [isOpeningFinicity, setIsOpeningFinicity] = useState(false);
-
-  const finicityEnabled = import.meta.env.VITE_ENABLE_FINICITY_PROBE === 'true';
-
-  const openPlaid = () => {
-    setShowLinkDialog(false);
-    openPlaidLink();
-  };
-
-  const openManualAccount = () => {
-    setShowLinkDialog(false);
-    setShowAccountDialog(true);
-  };
-
-  const openFinicity = async () => {
-    setIsOpeningFinicity(true);
-    try {
-      const response = await finicityService.createConnectUrl();
-      setShowLinkDialog(false);
-      window.open(response.connectUrl, '_blank', 'noopener,noreferrer');
-    } catch (error) {
-      console.error('Failed to open Finicity probe:', error);
-    } finally {
-      setIsOpeningFinicity(false);
-    }
-  };
 
   const totalLinked = plaidAccounts.length;
   const totalManual = manualAccounts.length;
@@ -144,45 +113,7 @@ export const AccountCoverageCard: React.FC = () => {
             ))}
           </div>
         )}
-
-        <div className="flex flex-wrap gap-2">
-          <button
-            onClick={() => setShowLinkDialog(true)}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium
-              bg-primary/10 text-primary border border-primary/20 hover:bg-primary/20 transition-colors"
-          >
-            <Landmark className="w-3 h-3" />
-            Link Account
-          </button>
-          <button
-            onClick={() => setShowCashflowDialog(true)}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium
-              bg-muted/30 text-foreground border border-border/30 hover:bg-muted/50 transition-colors"
-          >
-            <DollarSign className="w-3 h-3" />
-            Manual Cashflow
-          </button>
-        </div>
       </motion.div>
-
-      <AccountLinkDialog
-        open={showLinkDialog}
-        onOpenChange={setShowLinkDialog}
-        onOpenPlaid={openPlaid}
-        onOpenFinicity={openFinicity}
-        onOpenManualAccount={openManualAccount}
-        isPlaidLoading={isPlaidLoading}
-        isFinicityLoading={isOpeningFinicity}
-        finicityEnabled={finicityEnabled}
-      />
-      <ManualAccountDialog
-        open={showAccountDialog}
-        onOpenChange={setShowAccountDialog}
-      />
-      <ManualCashflowDialog
-        open={showCashflowDialog}
-        onOpenChange={setShowCashflowDialog}
-      />
     </>
   );
 };

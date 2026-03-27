@@ -36,14 +36,10 @@ describe('AccountCoverageCard account chooser', () => {
     plaidOpen.mockReset();
   });
 
-  it('opens an account source dialog from the link account button', () => {
+  it('does not render standalone add buttons anymore', () => {
     render(<AccountCoverageCard />);
 
-    fireEvent.click(screen.getByRole('button', { name: 'Link Account' }));
-
-    expect(screen.getByRole('heading', { name: 'Add Account' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Link with Plaid/ })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Add Manual Account/ })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Manual Account' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Link Account' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Manual Cashflow' })).not.toBeInTheDocument();
   });
 });

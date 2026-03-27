@@ -73,7 +73,10 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
 
   syncPlaidAccount: async (accountId) => {
     try {
-      await plaidService.syncAccount(accountId);
+      await Promise.all([
+        plaidService.syncAccount(accountId),
+        plaidService.syncTransactions(accountId),
+      ]);
       // Refresh all accounts after sync
       await get().fetchPlaidAccounts();
     } catch (err) {

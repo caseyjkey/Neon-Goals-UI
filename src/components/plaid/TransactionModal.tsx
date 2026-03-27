@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, MapPin, CreditCard, Clock, Tag, Building2, CheckCircle, AlertCircle, RefreshCw, Trash2 } from 'lucide-react';
+import { X, MapPin, CreditCard, Clock, Tag, Building2, AlertCircle, RefreshCw, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { PlaidAccount, PlaidTransaction } from '@/services/plaidService';
 import { plaidService } from '@/services/plaidService';
@@ -10,6 +10,9 @@ interface TransactionModalProps {
   isOpen: boolean;
   onClose: () => void;
   onDelete?: (accountId: string) => Promise<void>;
+  highlightTransactionIds?: string[];
+  highlightedItemLabel?: string;
+  highlightedItemDirection?: 'income' | 'expense';
 }
 
 const channelLabels: Record<string, string> = {
@@ -40,6 +43,9 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   isOpen,
   onClose,
   onDelete,
+  highlightTransactionIds,
+  highlightedItemLabel,
+  highlightedItemDirection,
 }) => {
   const [transactions, setTransactions] = useState<PlaidTransaction[]>([]);
   const [balance, setBalance] = useState<{ balance: number; available?: number } | null>(null);
@@ -47,6 +53,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const highlightedIds = new Set(highlightTransactionIds ?? []);
 
   useEffect(() => {
     if (isOpen && account.id) {
@@ -63,14 +70,23 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     setIsLoading(true);
     setError(null);
     try {
-      const [txns, bal] = await Promise.all([
-        plaidService.getTransactions(account.id).catch(() => []),
-        plaidService.getBalance(account.id).catch(() => null),
+      const [transactionResult, balanceResult] = await Promise.allSettled([
+        plaidService.getStoredTransactions(account.id),
+        plaidService.getBalance(account.id),
       ]);
-      setTransactions(txns);
-      setBalance(bal);
-    } catch (err) {
-      setError('Could not load account data');
+
+      if (transactionResult.status === 'fulfilled') {
+        setTransactions(transactionResult.value);
+      } else {
+        setTransactions([]);
+        setError('Could not load stored transactions');
+      }
+
+      if (balanceResult.status === 'fulfilled') {
+        setBalance(balanceResult.value);
+      } else {
+        setBalance(null);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -213,9 +229,16 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
             {/* Transactions List */}
             <div className="flex-1 overflow-y-auto scrollbar-neon p-5">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="font-heading font-medium text-foreground text-sm">
-                  Recent Transactions
-                </h3>
+                <div>
+                  <h3 className="font-heading font-medium text-foreground text-sm">
+                    Recent Transactions
+                  </h3>
+                  {highlightedItemLabel && highlightedIds.size > 0 && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Highlighting {highlightedItemDirection === 'income' ? 'income' : 'expense'} rows used for {highlightedItemLabel}
+                    </p>
+                  )}
+                </div>
                 <button
                   onClick={fetchData}
                   disabled={isLoading}
@@ -236,26 +259,37 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                   <AlertCircle className="w-8 h-8 text-muted-foreground mb-2" />
                   <p className="text-sm text-muted-foreground">{error}</p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Transactions load from your connected bank
+                    Refresh the account to sync the latest stored transaction history
                   </p>
                 </div>
               ) : transactions.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-8 text-center">
                   <CreditCard className="w-8 h-8 text-muted-foreground mb-2" />
-                  <p className="text-sm text-muted-foreground">No recent transactions</p>
+                  <p className="text-sm text-muted-foreground">No stored transactions</p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Transactions will appear after syncing
+                    Refresh the account card to sync transactions into projections
                   </p>
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {transactions.map((txn, idx) => (
+                  {transactions.map((txn, idx) => {
+                    const isHighlighted = highlightedIds.has(txn.id);
+                    const categoryLabel = Array.isArray(txn.category)
+                      ? txn.category[0]
+                      : txn.category || txn.categories?.[0];
+
+                    return (
                     <motion.div
                       key={txn.id}
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: idx * 0.03 }}
-                      className="p-3 rounded-xl bg-muted/20 border border-border/20 hover:bg-muted/30 transition-colors"
+                      className={cn(
+                        "p-3 rounded-xl border transition-colors",
+                        isHighlighted
+                          ? "bg-[linear-gradient(135deg,rgba(34,211,238,0.12),rgba(244,114,182,0.12))] border-primary/40 shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_10px_30px_rgba(34,211,238,0.12)]"
+                          : "bg-muted/20 border-border/20 hover:bg-muted/30"
+                      )}
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex-1 min-w-0">
@@ -267,10 +301,10 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                               <Clock className="w-3 h-3" />
                               {new Date(txn.date).toLocaleDateString()}
                             </span>
-                            {txn.category && txn.category.length > 0 && (
+                            {categoryLabel && (
                               <span className="text-xs text-muted-foreground flex items-center gap-1">
                                 <Tag className="w-3 h-3" />
-                                {txn.category[0]}
+                                {categoryLabel}
                               </span>
                             )}
                             {txn.paymentChannel && (
@@ -290,10 +324,19 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                         <div className="text-right flex-shrink-0">
                           <p className={cn(
                             "text-sm font-bold",
-                            txn.amount > 0 ? "text-destructive" : "neon-text-cyan"
+                            isHighlighted && highlightedItemDirection === 'income'
+                              ? "text-success"
+                              : isHighlighted && highlightedItemDirection === 'expense'
+                                ? "text-destructive"
+                                : "text-foreground"
                           )}>
-                            {txn.amount > 0 ? '-' : '+'}${Math.abs(txn.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            ${Math.abs(txn.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </p>
+                          {isHighlighted && (
+                            <span className="mt-1 inline-flex rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+                              Used in projection
+                            </span>
+                          )}
                           {txn.pending && (
                             <span className="badge-warning text-[10px] mt-1 inline-flex items-center gap-0.5">
                               <AlertCircle className="w-2.5 h-2.5" />
@@ -303,7 +346,8 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                         </div>
                       </div>
                     </motion.div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>

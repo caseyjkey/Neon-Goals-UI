@@ -18,6 +18,10 @@ import { GoalForecastCard } from '@/components/projections/GoalForecastCard';
 import { RecurringCashflowCard } from '@/components/projections/RecurringCashflowCard';
 import { ScenarioControls } from '@/components/projections/ScenarioControls';
 import { AccountCoverageCard } from '@/components/projections/AccountCoverageCard';
+import { AccountLinkDialog } from '@/components/projections/AccountLinkDialog';
+import { ManualAccountDialog } from '@/components/projections/ManualAccountDialog';
+import { ManualCashflowDialog } from '@/components/projections/ManualCashflowDialog';
+import { finicityService } from '@/services/finicityService';
 
 interface FinancialSummaryProps {
   className?: string;
@@ -79,8 +83,16 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({ className })
   const fetchManualCashflows = useProjectionStore((s) => s.fetchManualCashflows);
   const [showAccounts, setShowAccounts] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState<PlaidAccount | null>(null);
+  const [highlightedTransactionIds, setHighlightedTransactionIds] = useState<string[]>([]);
+  const [selectedTransactionLabel, setSelectedTransactionLabel] = useState<string | null>(null);
+  const [selectedTransactionDirection, setSelectedTransactionDirection] = useState<'income' | 'expense' | null>(null);
+  const [showLinkDialog, setShowLinkDialog] = useState(false);
+  const [showAccountDialog, setShowAccountDialog] = useState(false);
+  const [showCashflowDialog, setShowCashflowDialog] = useState(false);
+  const [isOpeningFinicity, setIsOpeningFinicity] = useState(false);
   const syncToast = useSyncToast();
   const { open: openPlaidLink, isLoading: isPlaidLoading, error: plaidError, accounts, pendingAccounts, syncAccount, removeAccount, isSyncing, fetchAccounts } = usePlaid();
+  const finicityEnabled = import.meta.env.VITE_ENABLE_FINICITY_PROBE === 'true';
 
   // Fetch projection data on mount
   useEffect(() => {
@@ -129,7 +141,63 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({ className })
 
   const handleAccountClick = (accountId: string) => {
     const account = accounts.find(a => a.id === accountId);
-    if (account) setSelectedAccount(account);
+    if (account) {
+      setSelectedAccount(account);
+      setHighlightedTransactionIds([]);
+      setSelectedTransactionLabel(null);
+      setSelectedTransactionDirection(null);
+    }
+  };
+
+  const handleRecurringItemSelect = (
+    item: { accountId?: string; sourceTransactionIds?: string[]; label: string },
+    direction: 'income' | 'expense',
+  ) => {
+    if (!item.accountId) {
+      return;
+    }
+
+    const account = accounts.find((candidate) => candidate.id === item.accountId);
+    if (!account) {
+      return;
+    }
+
+    setSelectedAccount(account);
+    setHighlightedTransactionIds(item.sourceTransactionIds ?? []);
+    setSelectedTransactionLabel(item.label);
+    setSelectedTransactionDirection(direction);
+  };
+
+  const openAddDialog = () => {
+    setShowLinkDialog(true);
+  };
+
+  const openPlaid = () => {
+    setShowLinkDialog(false);
+    openPlaidLink();
+  };
+
+  const openManualAccount = () => {
+    setShowLinkDialog(false);
+    setShowAccountDialog(true);
+  };
+
+  const openManualCashflow = () => {
+    setShowLinkDialog(false);
+    setShowCashflowDialog(true);
+  };
+
+  const openFinicity = async () => {
+    setIsOpeningFinicity(true);
+    try {
+      const response = await finicityService.createConnectUrl();
+      setShowLinkDialog(false);
+      window.open(response.connectUrl, '_blank', 'noopener,noreferrer');
+    } catch (error) {
+      console.error('Failed to open Finicity probe:', error);
+    } finally {
+      setIsOpeningFinicity(false);
+    }
   };
 
   // Group Plaid accounts by type
@@ -274,9 +342,9 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({ className })
           <ProjectionHero />
           <ProjectionChartCard />
           <GoalForecastCard />
-          <RecurringCashflowCard />
+          <RecurringCashflowCard onSelectItem={handleRecurringItemSelect} />
           <ScenarioControls />
-          <AccountCoverageCard />
+          <AccountCoverageCard onOpenAddDialog={openAddDialog} />
         </div>
       </div>
 
@@ -301,7 +369,7 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({ className })
                   return t === 'depository' || ['checking', 'savings', 'money_market', 'cd'].includes(s);
                 })}
                 emptyType="cash"
-                onAddAccount={openPlaidLink}
+                onAddAccount={openAddDialog}
                 onSync={syncAccount}
                 onClick={handleAccountClick}
                 isSyncing={isSyncing}
@@ -318,7 +386,7 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({ className })
                   return t === 'investment' || t === 'brokerage' || ['ira', '401k', 'roth', 'brokerage', 'hsa'].includes(s);
                 })}
                 emptyType="investments"
-                onAddAccount={openPlaidLink}
+                onAddAccount={openAddDialog}
                 onSync={syncAccount}
                 onClick={handleAccountClick}
                 isSyncing={isSyncing}
@@ -335,7 +403,7 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({ className })
                   return t === 'credit' || t === 'loan' || ['credit_card', 'auto', 'mortgage', 'student', 'loan'].includes(s);
                 })}
                 emptyType="credit"
-                onAddAccount={openPlaidLink}
+                onAddAccount={openAddDialog}
                 onSync={syncAccount}
                 onClick={handleAccountClick}
                 isSyncing={isSyncing}
@@ -360,10 +428,38 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({ className })
         <TransactionModal
           account={selectedAccount}
           isOpen={!!selectedAccount}
-          onClose={() => setSelectedAccount(null)}
+          onClose={() => {
+            setSelectedAccount(null);
+            setHighlightedTransactionIds([]);
+            setSelectedTransactionLabel(null);
+            setSelectedTransactionDirection(null);
+          }}
           onDelete={removeAccount}
+          highlightTransactionIds={highlightedTransactionIds}
+          highlightedItemLabel={selectedTransactionLabel ?? undefined}
+          highlightedItemDirection={selectedTransactionDirection ?? undefined}
         />
       )}
+
+      <AccountLinkDialog
+        open={showLinkDialog}
+        onOpenChange={setShowLinkDialog}
+        onOpenPlaid={openPlaid}
+        onOpenFinicity={openFinicity}
+        onOpenManualAccount={openManualAccount}
+        onOpenManualCashflow={openManualCashflow}
+        isPlaidLoading={isPlaidLoading}
+        isFinicityLoading={isOpeningFinicity}
+        finicityEnabled={finicityEnabled}
+      />
+      <ManualAccountDialog
+        open={showAccountDialog}
+        onOpenChange={setShowAccountDialog}
+      />
+      <ManualCashflowDialog
+        open={showCashflowDialog}
+        onOpenChange={setShowCashflowDialog}
+      />
     </>
   );
 };
@@ -438,7 +534,7 @@ const AccountSection: React.FC<AccountSectionProps> = ({
       </div>
 
       {accounts.length > 0 || hasPending ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 xl:grid-cols-2 2xl:grid-cols-3 gap-3">
           {accounts.map(account => (
             <PlaidAccountCard
               key={account.id}
