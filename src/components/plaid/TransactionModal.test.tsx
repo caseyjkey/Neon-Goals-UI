@@ -57,4 +57,51 @@ describe('TransactionModal', () => {
     expect(screen.queryByText('No stored transactions')).not.toBeInTheDocument();
     expect(screen.getByText(/follow-up fetch for the account failed/i)).toBeInTheDocument();
   });
+
+  it('shows a direction-specific drilldown header and filters to highlighted rows', async () => {
+    plaidMocks.getStoredTransactions.mockResolvedValueOnce([
+      {
+        id: 'txn_pay_1',
+        accountId: 'acct_1',
+        name: '100-SFDC INC',
+        amount: -3047.02,
+        date: '2026-02-24T00:00:00.000Z',
+        category: ['OTHER'],
+        pending: false,
+        merchantName: '100-SFDC INC',
+        paymentChannel: 'other',
+      },
+      {
+        id: 'txn_other_1',
+        accountId: 'acct_1',
+        name: 'Coffee Shop',
+        amount: 14.25,
+        date: '2026-02-25T00:00:00.000Z',
+        category: ['FOOD'],
+        pending: false,
+        merchantName: 'Coffee Shop',
+        paymentChannel: 'in_store',
+      },
+    ]);
+    plaidMocks.getBalance.mockResolvedValueOnce({ balance: 1200 });
+
+    render(
+      <TransactionModal
+        account={account}
+        isOpen
+        onClose={vi.fn()}
+        highlightTransactionIds={['txn_pay_1']}
+        highlightedItemLabel="100 Sfdc Inc"
+        highlightedItemDirection="income"
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Recent Income')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('100-SFDC INC')).toBeInTheDocument();
+    expect(screen.queryByText('Coffee Shop')).not.toBeInTheDocument();
+    expect(screen.getByText('+$3,047.02')).toBeInTheDocument();
+  });
 });

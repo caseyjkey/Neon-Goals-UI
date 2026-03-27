@@ -54,6 +54,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const highlightedIds = new Set(highlightTransactionIds ?? []);
+  const isDrilldownView = Boolean(highlightedItemDirection && highlightedIds.size > 0);
 
   useEffect(() => {
     if (isOpen && account.id) {
@@ -94,6 +95,14 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
 
   const isDebt = account.isDebt || ['credit', 'loan'].includes(account.accountType.toLowerCase()) ||
     ['credit_card', 'auto', 'mortgage', 'student', 'loan'].includes(account.accountSubtype?.toLowerCase() || '');
+  const visibleTransactions = isDrilldownView
+    ? transactions.filter((transaction) => highlightedIds.has(transaction.id))
+    : transactions;
+  const transactionsHeading = isDrilldownView
+    ? highlightedItemDirection === 'income'
+      ? 'Recent Income'
+      : 'Recent Expenses'
+    : 'Recent Transactions';
 
   return (
     <AnimatePresence>
@@ -231,7 +240,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h3 className="font-heading font-medium text-foreground text-sm">
-                    Recent Transactions
+                    {transactionsHeading}
                   </h3>
                   {highlightedItemLabel && highlightedIds.size > 0 && (
                     <p className="text-xs text-muted-foreground mt-1">
@@ -262,17 +271,21 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                     The projection was computed earlier, but this follow-up fetch for the account failed
                   </p>
                 </div>
-              ) : transactions.length === 0 ? (
+              ) : visibleTransactions.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-8 text-center">
                   <CreditCard className="w-8 h-8 text-muted-foreground mb-2" />
-                  <p className="text-sm text-muted-foreground">No stored transactions</p>
+                  <p className="text-sm text-muted-foreground">
+                    {isDrilldownView ? 'No matching transactions found for this projection item' : 'No stored transactions'}
+                  </p>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Refresh the account card to sync transactions into projections
+                    {isDrilldownView
+                      ? 'Refresh the account card to resync this account if the projection rows look stale'
+                      : 'Refresh the account card to sync transactions into projections'}
                   </p>
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {transactions.map((txn, idx) => {
+                  {visibleTransactions.map((txn, idx) => {
                     const isHighlighted = highlightedIds.has(txn.id);
                     const categoryLabel = Array.isArray(txn.category)
                       ? txn.category[0]
@@ -324,12 +337,13 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                         <div className="text-right flex-shrink-0">
                           <p className={cn(
                             "text-sm font-bold",
-                            isHighlighted && highlightedItemDirection === 'income'
+                            txn.amount < 0 || (isHighlighted && highlightedItemDirection === 'income')
                               ? "text-success"
-                              : isHighlighted && highlightedItemDirection === 'expense'
+                              : txn.amount > 0 || (isHighlighted && highlightedItemDirection === 'expense')
                                 ? "text-destructive"
                                 : "text-foreground"
                           )}>
+                            {txn.amount < 0 ? '+' : txn.amount > 0 ? '-' : ''}
                             ${Math.abs(txn.amount).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </p>
                           {isHighlighted && (
