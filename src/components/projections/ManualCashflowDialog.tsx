@@ -12,6 +12,13 @@ import { useProjectionStore } from '@/store/useProjectionStore';
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  initialValues?: {
+    label?: string;
+    amount?: number;
+    type?: 'income' | 'expense';
+    cadence?: 'weekly' | 'biweekly' | 'monthly' | 'quarterly' | 'annual';
+    category?: string;
+  } | null;
 }
 
 const CADENCES = [
@@ -22,7 +29,7 @@ const CADENCES = [
   { value: 'annual', label: 'Annual' },
 ] as const;
 
-export const ManualCashflowDialog: React.FC<Props> = ({ open, onOpenChange }) => {
+export const ManualCashflowDialog: React.FC<Props> = ({ open, onOpenChange, initialValues = null }) => {
   const addManualCashflow = useProjectionStore((s) => s.addManualCashflow);
   const [label, setLabel] = useState('');
   const [amount, setAmount] = useState('');
@@ -33,13 +40,19 @@ export const ManualCashflowDialog: React.FC<Props> = ({ open, onOpenChange }) =>
   const [error, setError] = useState('');
 
   const reset = () => {
-    setLabel('');
-    setAmount('');
-    setType('income');
-    setCadence('monthly');
-    setCategory('');
+    setLabel(initialValues?.label ?? '');
+    setAmount(initialValues?.amount ? String(initialValues.amount) : '');
+    setType(initialValues?.type ?? 'income');
+    setCadence(initialValues?.cadence ?? 'monthly');
+    setCategory(initialValues?.category ?? '');
     setError('');
   };
+
+  React.useEffect(() => {
+    if (open) {
+      reset();
+    }
+  }, [open, initialValues]);
 
   const handleSave = async () => {
     if (!label.trim()) { setError('Label is required'); return; }

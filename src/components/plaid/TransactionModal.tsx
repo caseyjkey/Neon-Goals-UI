@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, MapPin, CreditCard, Clock, Tag, Building2, AlertCircle, RefreshCw, Trash2 } from 'lucide-react';
+import { X, MapPin, CreditCard, Clock, Tag, Building2, AlertCircle, RefreshCw, Trash2, TimerReset } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { PlaidAccount, PlaidTransaction } from '@/services/plaidService';
+import type { RecurringItem } from '@/types/projections';
 import { plaidService } from '@/services/plaidService';
 
 interface TransactionModalProps {
@@ -13,6 +14,14 @@ interface TransactionModalProps {
   highlightTransactionIds?: string[];
   highlightedItemLabel?: string;
   highlightedItemDirection?: 'income' | 'expense';
+  mergedSources?: NonNullable<RecurringItem['mergedSources']>;
+  onUnmergeRecurringSource?: (sourceItemId: string) => void;
+  onAddManualCashflow?: (prefill: {
+    label: string;
+    amount: number;
+    type: 'income' | 'expense';
+    category?: string;
+  }) => void;
 }
 
 const channelLabels: Record<string, string> = {
@@ -46,6 +55,9 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   highlightTransactionIds,
   highlightedItemLabel,
   highlightedItemDirection,
+  mergedSources,
+  onUnmergeRecurringSource,
+  onAddManualCashflow,
 }) => {
   const [transactions, setTransactions] = useState<PlaidTransaction[]>([]);
   const [balance, setBalance] = useState<{ balance: number; available?: number } | null>(null);
@@ -247,6 +259,26 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                       Highlighting {highlightedItemDirection === 'income' ? 'income' : 'expense'} rows used for {highlightedItemLabel}
                     </p>
                   )}
+                  {mergedSources && mergedSources.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {mergedSources.map((source) => (
+                        <span
+                          key={source.id}
+                          className="inline-flex items-center gap-1 rounded-full border border-border/30 bg-muted/30 px-2 py-1 text-[10px] text-muted-foreground"
+                        >
+                          {source.label}
+                          <button
+                            type="button"
+                            aria-label={`Remove merged source ${source.label}`}
+                            className="text-muted-foreground transition-colors hover:text-foreground"
+                            onClick={() => onUnmergeRecurringSource?.(source.id)}
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <button
                   onClick={fetchData}
@@ -333,6 +365,20 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                               {[txn.location.address, txn.location.city, txn.location.region].filter(Boolean).join(', ')}
                             </p>
                           )}
+                          <button
+                            type="button"
+                            aria-label={`Add recurring from ${txn.merchantName || txn.name}`}
+                            className="mt-2 inline-flex items-center gap-1 rounded-lg border border-border/30 bg-muted/20 px-2 py-1 text-[11px] text-muted-foreground transition-colors hover:border-primary/30 hover:text-primary"
+                            onClick={() => onAddManualCashflow?.({
+                              label: txn.merchantName || txn.name,
+                              amount: Math.abs(txn.amount),
+                              type: txn.amount < 0 ? 'income' : 'expense',
+                              category: categoryLabel,
+                            })}
+                          >
+                            <TimerReset className="w-3 h-3" />
+                            Make recurring
+                          </button>
                         </div>
                         <div className="text-right flex-shrink-0">
                           <p className={cn(

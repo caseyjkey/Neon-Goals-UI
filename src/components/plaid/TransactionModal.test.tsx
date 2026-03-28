@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const plaidMocks = vi.hoisted(() => ({
@@ -103,5 +103,61 @@ describe('TransactionModal', () => {
     expect(screen.getByText('100-SFDC INC')).toBeInTheDocument();
     expect(screen.queryByText('Coffee Shop')).not.toBeInTheDocument();
     expect(screen.getByText('+$3,047.02')).toBeInTheDocument();
+  });
+
+  it('prefills recurring cashflow creation from a transaction row and allows unmerge from drilldown', async () => {
+    const onAddManualCashflow = vi.fn();
+    const onUnmergeRecurringSource = vi.fn();
+
+    plaidMocks.getStoredTransactions.mockResolvedValueOnce([
+      {
+        id: 'txn_pay_1',
+        accountId: 'acct_1',
+        name: '100-SFDC INC',
+        amount: -3047.02,
+        date: '2026-02-24T00:00:00.000Z',
+        category: ['OTHER'],
+        pending: false,
+        merchantName: '100-SFDC INC',
+        paymentChannel: 'other',
+      },
+    ]);
+    plaidMocks.getBalance.mockResolvedValueOnce({ balance: 1200 });
+
+    render(
+      <TransactionModal
+        account={account}
+        isOpen
+        onClose={vi.fn()}
+        onAddManualCashflow={onAddManualCashflow}
+        highlightTransactionIds={['txn_pay_1']}
+        highlightedItemLabel="100 Sfdc Inc"
+        highlightedItemDirection="income"
+        mergedSources={[
+          {
+            id: 'income:acct_2:bonus',
+            label: 'Bonus',
+            accountName: 'Rewards Card',
+            sourceTransactionIds: ['txn_bonus_1'],
+          },
+        ]}
+        onUnmergeRecurringSource={onUnmergeRecurringSource}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Recent Income')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Add recurring from 100-SFDC INC/i }));
+    expect(onAddManualCashflow).toHaveBeenCalledWith({
+      label: '100-SFDC INC',
+      amount: 3047.02,
+      type: 'income',
+      category: 'OTHER',
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Remove merged source Bonus/i }));
+    expect(onUnmergeRecurringSource).toHaveBeenCalledWith('income:acct_2:bonus');
   });
 });

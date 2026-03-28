@@ -133,7 +133,7 @@ describe('FinancialSummary add account modal', () => {
     expect(screen.getByRole('heading', { name: 'Add Account' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Link with Plaid/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Add Manual Account/ })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Manual Cashflow/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Manual Cashflow/ })).not.toBeInTheDocument();
   });
 
   it('shows an error toast when bulk sync fails', async () => {

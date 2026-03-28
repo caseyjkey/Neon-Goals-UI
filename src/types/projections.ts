@@ -39,6 +39,12 @@ export interface RecurringItem {
   accountId?: string;
   accountName?: string;
   sourceTransactionIds?: string[];
+  mergedSources?: Array<{
+    id: string;
+    label: string;
+    accountName?: string;
+    sourceTransactionIds: string[];
+  }>;
 }
 
 export interface CashflowSummary {

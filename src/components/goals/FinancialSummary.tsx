@@ -21,6 +21,8 @@ import { AccountLinkDialog } from '@/components/projections/AccountLinkDialog';
 import { ManualAccountDialog } from '@/components/projections/ManualAccountDialog';
 import { ManualCashflowDialog } from '@/components/projections/ManualCashflowDialog';
 import { finicityService } from '@/services/finicityService';
+import { projectionsService } from '@/services/projectionsService';
+import type { RecurringItem } from '@/types/projections';
 
 interface FinancialSummaryProps {
   className?: string;
@@ -82,14 +84,18 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({ className })
   const fetchManualCashflows = useProjectionStore((s) => s.fetchManualCashflows);
   const [showAccounts, setShowAccounts] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState<PlaidAccount | null>(null);
-  const [highlightedTransactionIds, setHighlightedTransactionIds] = useState<string[]>([]);
-  const [selectedTransactionLabel, setSelectedTransactionLabel] = useState<string | null>(null);
-  const [selectedTransactionDirection, setSelectedTransactionDirection] = useState<'income' | 'expense' | null>(null);
+  const [selectedRecurringItem, setSelectedRecurringItem] = useState<RecurringItem | null>(null);
   const [showLinkDialog, setShowLinkDialog] = useState(false);
   const [showAccountDialog, setShowAccountDialog] = useState(false);
   const [showCashflowDialog, setShowCashflowDialog] = useState(false);
   const [isOpeningFinicity, setIsOpeningFinicity] = useState(false);
   const [isSyncingAll, setIsSyncingAll] = useState(false);
+  const [manualCashflowDefaults, setManualCashflowDefaults] = useState<{
+    label?: string;
+    amount?: number;
+    type?: 'income' | 'expense';
+    category?: string;
+  } | null>(null);
   const syncToast = useSyncToast();
   const { open: openPlaidLink, isLoading: isPlaidLoading, error: plaidError, accounts, pendingAccounts, syncAccount, removeAccount, isSyncing, fetchAccounts } = usePlaid();
   const finicityEnabled = import.meta.env.VITE_ENABLE_FINICITY_PROBE === 'true';
@@ -161,14 +167,12 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({ className })
     const account = accounts.find(a => a.id === accountId);
     if (account) {
       setSelectedAccount(account);
-      setHighlightedTransactionIds([]);
-      setSelectedTransactionLabel(null);
-      setSelectedTransactionDirection(null);
+      setSelectedRecurringItem(null);
     }
   };
 
   const handleRecurringItemSelect = (
-    item: { accountId?: string; sourceTransactionIds?: string[]; label: string },
+    item: RecurringItem,
     direction: 'income' | 'expense',
   ) => {
     if (!item.accountId) {
@@ -181,9 +185,18 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({ className })
     }
 
     setSelectedAccount(account);
-    setHighlightedTransactionIds(item.sourceTransactionIds ?? []);
-    setSelectedTransactionLabel(item.label);
-    setSelectedTransactionDirection(direction);
+    setSelectedRecurringItem({
+      ...item,
+      source: item.source,
+      mergedSources: item.mergedSources,
+      sourceTransactionIds: item.sourceTransactionIds,
+      id: item.id,
+      label: item.label,
+      amount: item.amount,
+      cadence: item.cadence,
+      confidence: item.confidence,
+      category: item.category,
+    });
   };
 
   const openAddDialog = () => {
@@ -202,7 +215,49 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({ className })
 
   const openManualCashflow = () => {
     setShowLinkDialog(false);
+    setManualCashflowDefaults(null);
     setShowCashflowDialog(true);
+  };
+
+  const openManualCashflowFromTransaction = (prefill: {
+    label: string;
+    amount: number;
+    type: 'income' | 'expense';
+    category?: string;
+  }) => {
+    setManualCashflowDefaults(prefill);
+    setShowCashflowDialog(true);
+  };
+
+  const handleMergeRecurringItems = async (
+    source: RecurringItem,
+    target: RecurringItem,
+    direction: 'income' | 'expense',
+  ) => {
+    await projectionsService.mergeRecurringItems(target.id, source.id, direction);
+    await refreshProjectionData();
+  };
+
+  const handleUnmergeRecurringSource = async (sourceItemId: string) => {
+    if (!selectedRecurringItem) {
+      return;
+    }
+
+    const direction = selectedRecurringItem.id.startsWith('income:') ? 'income' : 'expense';
+    await projectionsService.unmergeRecurringItems(selectedRecurringItem.id, sourceItemId, direction);
+    await refreshProjectionData();
+
+    const refreshedCashflow = await projectionsService.getCashflow();
+    const nextItem = [
+      ...refreshedCashflow.recurringIncome,
+      ...refreshedCashflow.recurringExpenses,
+    ].find((item) => item.id === selectedRecurringItem.id);
+
+    if (nextItem && selectedAccount) {
+      setSelectedRecurringItem(nextItem);
+    } else {
+      setSelectedRecurringItem(null);
+    }
   };
 
   const openFinicity = async () => {
@@ -374,7 +429,11 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({ className })
           <ProjectionHero />
           <ProjectionChartCard />
           <GoalForecastCard />
-          <RecurringCashflowCard onSelectItem={handleRecurringItemSelect} />
+          <RecurringCashflowCard
+            onSelectItem={handleRecurringItemSelect}
+            onAddManualCashflow={openManualCashflow}
+            onMergeItems={handleMergeRecurringItems}
+          />
           <ScenarioControls />
         </div>
       </div>
@@ -461,14 +520,15 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({ className })
           isOpen={!!selectedAccount}
           onClose={() => {
             setSelectedAccount(null);
-            setHighlightedTransactionIds([]);
-            setSelectedTransactionLabel(null);
-            setSelectedTransactionDirection(null);
+            setSelectedRecurringItem(null);
           }}
           onDelete={removeAccount}
-          highlightTransactionIds={highlightedTransactionIds}
-          highlightedItemLabel={selectedTransactionLabel ?? undefined}
-          highlightedItemDirection={selectedTransactionDirection ?? undefined}
+          highlightTransactionIds={selectedRecurringItem?.sourceTransactionIds}
+          highlightedItemLabel={selectedRecurringItem?.label}
+          highlightedItemDirection={selectedRecurringItem?.id.startsWith('income:') ? 'income' : selectedRecurringItem ? 'expense' : undefined}
+          mergedSources={selectedRecurringItem?.mergedSources}
+          onUnmergeRecurringSource={handleUnmergeRecurringSource}
+          onAddManualCashflow={openManualCashflowFromTransaction}
         />
       )}
 
@@ -478,7 +538,6 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({ className })
         onOpenPlaid={openPlaid}
         onOpenFinicity={openFinicity}
         onOpenManualAccount={openManualAccount}
-        onOpenManualCashflow={openManualCashflow}
         isPlaidLoading={isPlaidLoading}
         isFinicityLoading={isOpeningFinicity}
         finicityEnabled={finicityEnabled}
@@ -490,6 +549,7 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({ className })
       <ManualCashflowDialog
         open={showCashflowDialog}
         onOpenChange={setShowCashflowDialog}
+        initialValues={manualCashflowDefaults}
       />
     </>
   );

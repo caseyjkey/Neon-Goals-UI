@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronDown, ChevronUp, ArrowUpRight, ArrowDownRight } from 'lucide-react';
+import { ChevronDown, ChevronUp, ArrowUpRight, ArrowDownRight, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useProjectionStore } from '@/store/useProjectionStore';
@@ -20,17 +20,43 @@ const confidenceColor = (c: RecurringItem['confidence']) => {
 
 interface RecurringCashflowCardProps {
   onSelectItem?: (item: RecurringItem, direction: 'income' | 'expense') => void;
+  onAddManualCashflow?: () => void;
+  onMergeItems?: (source: RecurringItem, target: RecurringItem, direction: 'income' | 'expense') => void;
 }
 
 const CashflowRow: React.FC<{
   item: RecurringItem;
   direction: 'income' | 'expense';
   onSelectItem?: (item: RecurringItem, direction: 'income' | 'expense') => void;
-}> = ({ item, direction, onSelectItem }) => (
+  onMergeItems?: (source: RecurringItem, target: RecurringItem, direction: 'income' | 'expense') => void;
+  draggedItem: { item: RecurringItem; direction: 'income' | 'expense' } | null;
+  onDragItemChange: (item: { item: RecurringItem; direction: 'income' | 'expense' } | null) => void;
+}> = ({ item, direction, onSelectItem, onMergeItems, draggedItem, onDragItemChange }) => (
   <motion.button
     type="button"
     whileTap={{ scale: item.accountId ? 0.985 : 1 }}
     onClick={() => item.accountId && onSelectItem?.(item, direction)}
+    draggable={Boolean(item.accountId)}
+    onDragStart={() => {
+      onDragItemChange({ item, direction });
+    }}
+    onDragEnd={() => onDragItemChange(null)}
+    onDragOver={(event) => {
+      if (item.accountId) {
+        event.preventDefault();
+      }
+    }}
+    onDrop={(event) => {
+      event.preventDefault();
+      if (!draggedItem) {
+        return;
+      }
+      if (draggedItem.item.id === item.id || draggedItem.direction !== direction) {
+        return;
+      }
+      onMergeItems?.(draggedItem.item, item, direction);
+      onDragItemChange(null);
+    }}
     className={cn(
       'group relative flex w-full items-center justify-between rounded-xl border border-transparent py-2 px-2 text-left transition-all',
       item.accountId
@@ -57,11 +83,16 @@ const CashflowRow: React.FC<{
   </motion.button>
 );
 
-export const RecurringCashflowCard: React.FC<RecurringCashflowCardProps> = ({ onSelectItem }) => {
+export const RecurringCashflowCard: React.FC<RecurringCashflowCardProps> = ({
+  onSelectItem,
+  onAddManualCashflow,
+  onMergeItems,
+}) => {
   const cashflow = useProjectionStore((s) => s.cashflow);
   const isLoading = useProjectionStore((s) => s.isLoadingCashflow);
   const isMobile = useIsMobile();
   const [isOpen, setIsOpen] = React.useState(!isMobile);
+  const [draggedItem, setDraggedItem] = React.useState<{ item: RecurringItem; direction: 'income' | 'expense' } | null>(null);
 
   if (isLoading && !cashflow) {
     return <Skeleton className="h-32 w-full rounded-xl" />;
@@ -76,10 +107,7 @@ export const RecurringCashflowCard: React.FC<RecurringCashflowCardProps> = ({ on
       className="rounded-xl bg-muted/20 border border-border/20 overflow-hidden"
     >
       {/* Header - always visible */}
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between p-4 hover:bg-muted/10 transition-colors"
-      >
+      <div className="w-full flex items-center justify-between p-4 hover:bg-muted/10 transition-colors">
         <div className="flex items-center gap-3">
           <p className="text-xs font-medium text-muted-foreground">
             Recurring Cashflow
@@ -92,12 +120,32 @@ export const RecurringCashflowCard: React.FC<RecurringCashflowCardProps> = ({ on
             {formatAmount(cashflow.netMonthlyCashflow)}/mo
           </span>
         </div>
-        {isOpen ? (
-          <ChevronUp className="w-4 h-4 text-muted-foreground" />
-        ) : (
-          <ChevronDown className="w-4 h-4 text-muted-foreground" />
-        )}
-      </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            aria-label="Add recurring cashflow"
+            onClick={(event) => {
+              event.stopPropagation();
+              onAddManualCashflow?.();
+            }}
+            className="rounded-lg border border-border/30 bg-background/70 p-1.5 text-muted-foreground transition-colors hover:border-primary/30 hover:text-primary"
+          >
+            <Plus className="w-4 h-4" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsOpen(!isOpen)}
+            aria-label={isOpen ? 'Collapse recurring cashflow' : 'Expand recurring cashflow'}
+            className="rounded-lg p-1 text-muted-foreground transition-colors hover:text-foreground"
+          >
+            {isOpen ? (
+              <ChevronUp className="w-4 h-4 text-muted-foreground" />
+            ) : (
+              <ChevronDown className="w-4 h-4 text-muted-foreground" />
+            )}
+          </button>
+        </div>
+      </div>
 
       <AnimatePresence>
         {isOpen && (
@@ -119,7 +167,15 @@ export const RecurringCashflowCard: React.FC<RecurringCashflowCardProps> = ({ on
                 </div>
                 {cashflow.recurringIncome.length > 0 ? (
                   cashflow.recurringIncome.map((item) => (
-                    <CashflowRow key={item.id} item={item} direction="income" onSelectItem={onSelectItem} />
+                    <CashflowRow
+                      key={item.id}
+                      item={item}
+                      direction="income"
+                      onSelectItem={onSelectItem}
+                      onMergeItems={onMergeItems}
+                      draggedItem={draggedItem}
+                      onDragItemChange={setDraggedItem}
+                    />
                   ))
                 ) : (
                   <p className="text-xs text-muted-foreground/50 py-2">
@@ -138,7 +194,15 @@ export const RecurringCashflowCard: React.FC<RecurringCashflowCardProps> = ({ on
                 </div>
                 {cashflow.recurringExpenses.length > 0 ? (
                   cashflow.recurringExpenses.map((item) => (
-                    <CashflowRow key={item.id} item={item} direction="expense" onSelectItem={onSelectItem} />
+                    <CashflowRow
+                      key={item.id}
+                      item={item}
+                      direction="expense"
+                      onSelectItem={onSelectItem}
+                      onMergeItems={onMergeItems}
+                      draggedItem={draggedItem}
+                      onDragItemChange={setDraggedItem}
+                    />
                   ))
                 ) : (
                   <p className="text-xs text-muted-foreground/50 py-2">

@@ -27,4 +27,20 @@ export const projectionsService = {
       horizon,
     });
   },
+
+  async mergeRecurringItems(targetItemId: string, sourceItemId: string, direction: 'income' | 'expense') {
+    return apiClient.post('/projections/cashflow/merge', {
+      targetItemId,
+      sourceItemId,
+      direction,
+    });
+  },
+
+  async unmergeRecurringItems(targetItemId: string, sourceItemId: string, direction: 'income' | 'expense') {
+    return apiClient.post('/projections/cashflow/unmerge', {
+      targetItemId,
+      sourceItemId,
+      direction,
+    });
+  },
 };
