@@ -1,6 +1,9 @@
 import { apiClient } from './apiClient';
 import type { Entitlements, BillingUsage, BillingSubscription } from '@/types/billing';
 
+export const isBillingEnabled = (): boolean =>
+  import.meta.env.VITE_BILLING_ENABLED === 'true';
+
 export type BillingEntitlementsResponse = {
   plan: string;
   subscriptionStatus: string;

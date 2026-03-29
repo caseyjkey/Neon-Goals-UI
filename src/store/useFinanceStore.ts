@@ -73,9 +73,16 @@ export const useFinanceStore = create<FinanceState>()((set, get) => ({
 
   syncPlaidAccount: async (accountId) => {
     try {
+      const account = get().plaidAccounts.find((candidate) => candidate.id === accountId);
+      const isInvestmentAccount =
+        account?.accountType?.toLowerCase() === 'investment' ||
+        account?.accountType?.toLowerCase() === 'brokerage';
+
       await Promise.all([
         plaidService.syncAccount(accountId),
-        plaidService.syncTransactions(accountId),
+        isInvestmentAccount
+          ? plaidService.syncInvestments(accountId)
+          : plaidService.syncTransactions(accountId),
       ]);
       // Refresh all accounts after sync
       await get().fetchPlaidAccounts();

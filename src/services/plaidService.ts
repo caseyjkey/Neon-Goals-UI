@@ -37,6 +37,48 @@ export interface PlaidTransaction {
   checkNumber?: string;
 }
 
+export interface PlaidInvestmentHolding {
+  id: string;
+  securityId: string;
+  name: string;
+  tickerSymbol?: string | null;
+  quantity: number;
+  institutionPrice?: number | null;
+  institutionPriceAsOf?: string | null;
+  institutionValue?: number | null;
+  costBasis?: number | null;
+  currency: string;
+  currentPrice?: number | null;
+  currentPriceAsOf?: string | null;
+}
+
+export interface PlaidInvestmentTransaction {
+  id: string;
+  investmentTransactionId: string;
+  securityId?: string | null;
+  securityName?: string | null;
+  tickerSymbol?: string | null;
+  amount: number;
+  quantity?: number | null;
+  fees?: number | null;
+  price?: number | null;
+  date: string;
+  name: string;
+  type?: string | null;
+  subtype?: string | null;
+  currency: string;
+  currentPrice?: number | null;
+  currentPriceAsOf?: string | null;
+}
+
+export interface PlaidInvestmentSnapshot {
+  accountName: string;
+  institutionName: string;
+  accountType: string;
+  holdings: PlaidInvestmentHolding[];
+  transactions: PlaidInvestmentTransaction[];
+}
+
 export interface LinkTokenResponse {
   link_token: string;
   expiration: string;
@@ -82,6 +124,10 @@ export const plaidService = {
     return apiClient.post<{ stored: number; skipped: number }>(`/plaid/sync/${accountId}/transactions`);
   },
 
+  async syncInvestments(accountId: string): Promise<{ holdings: number; transactions: number }> {
+    return apiClient.post<{ holdings: number; transactions: number }>(`/plaid/sync/${accountId}/investments`);
+  },
+
   /** Link an account to a finance goal */
   async linkToGoal(accountId: string, goalId: string): Promise<void> {
     return apiClient.post('/plaid/link-to-goal', { accountId, goalId });
@@ -106,5 +152,11 @@ export const plaidService = {
       `/plaid/accounts/${accountId}/transactions/stored?limit=${limit}`
     );
     return Array.isArray(response) ? response : response.transactions || [];
+  },
+
+  async getStoredInvestments(accountId: string, limit = 100): Promise<PlaidInvestmentSnapshot> {
+    return apiClient.get<PlaidInvestmentSnapshot>(
+      `/plaid/accounts/${accountId}/investments/stored?limit=${limit}`
+    );
   },
 };

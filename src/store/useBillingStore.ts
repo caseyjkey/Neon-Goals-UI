@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { BillingState, BillingUsage, UpgradeContext, Plan } from '@/types/billing';
-import { billingService } from '@/services/billingService';
+import { billingService, isBillingEnabled } from '@/services/billingService';
 
 // Free plan defaults for offline / unauthenticated state
 const FREE_ENTITLEMENTS = {
@@ -37,6 +37,11 @@ export const useBillingStore = create<BillingState>()(
       },
 
       fetchBilling: async () => {
+        if (!isBillingEnabled()) {
+          set({ isLoading: false });
+          return;
+        }
+
         set({ isLoading: true });
         try {
           const data = await billingService.getEntitlements();

@@ -2,7 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, MapPin, CreditCard, Clock, Tag, Building2, AlertCircle, RefreshCw, Trash2, TimerReset } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { PlaidAccount, PlaidTransaction } from '@/services/plaidService';
+import type {
+  PlaidAccount,
+  PlaidInvestmentSnapshot,
+  PlaidInvestmentTransaction,
+  PlaidTransaction,
+} from '@/services/plaidService';
 import type { RecurringItem } from '@/types/projections';
 import { plaidService } from '@/services/plaidService';
 
@@ -60,6 +65,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   onAddManualCashflow,
 }) => {
   const [transactions, setTransactions] = useState<PlaidTransaction[]>([]);
+  const [investmentData, setInvestmentData] = useState<PlaidInvestmentSnapshot | null>(null);
   const [balance, setBalance] = useState<{ balance: number; available?: number } | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -67,6 +73,9 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
   const [isDeleting, setIsDeleting] = useState(false);
   const highlightedIds = new Set(highlightTransactionIds ?? []);
   const isDrilldownView = Boolean(highlightedItemDirection && highlightedIds.size > 0);
+  const isInvestmentAccount =
+    account.accountType.toLowerCase() === 'investment' ||
+    account.accountType.toLowerCase() === 'brokerage';
 
   useEffect(() => {
     if (isOpen && account.id) {
@@ -83,16 +92,25 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
     setIsLoading(true);
     setError(null);
     try {
-      const [transactionResult, balanceResult] = await Promise.allSettled([
-        plaidService.getStoredTransactions(account.id),
+      const [detailResult, balanceResult] = await Promise.allSettled([
+        isInvestmentAccount
+          ? plaidService.getStoredInvestments(account.id)
+          : plaidService.getStoredTransactions(account.id),
         plaidService.getBalance(account.id),
       ]);
 
-      if (transactionResult.status === 'fulfilled') {
-        setTransactions(transactionResult.value);
+      if (detailResult.status === 'fulfilled') {
+        if (isInvestmentAccount) {
+          setInvestmentData(detailResult.value as PlaidInvestmentSnapshot);
+          setTransactions([]);
+        } else {
+          setTransactions(detailResult.value as PlaidTransaction[]);
+          setInvestmentData(null);
+        }
       } else {
         setTransactions([]);
-        setError('Could not load transaction history');
+        setInvestmentData(null);
+        setError(isInvestmentAccount ? 'Could not load brokerage data' : 'Could not load transaction history');
       }
 
       if (balanceResult.status === 'fulfilled') {
@@ -115,6 +133,72 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
       ? 'Recent Income'
       : 'Recent Expenses'
     : 'Recent Transactions';
+  const visibleInvestmentTransactions = investmentData?.transactions ?? [];
+  const holdings = investmentData?.holdings ?? [];
+
+  const renderInvestmentTransaction = (txn: PlaidInvestmentTransaction, idx: number) => {
+    const currentPrice = txn.currentPrice ?? null;
+    const txnPrice = txn.price ?? null;
+    const priceChange =
+      currentPrice !== null && txnPrice !== null ? currentPrice - txnPrice : null;
+
+    return (
+      <motion.div
+        key={txn.id}
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: idx * 0.03 }}
+        className="p-3 rounded-xl border bg-muted/20 border-border/20 hover:bg-muted/30"
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-foreground truncate">
+              {txn.tickerSymbol ? `${txn.tickerSymbol} • ${txn.name}` : txn.name}
+            </p>
+            <div className="flex items-center gap-2 mt-1 flex-wrap">
+              <span className="text-xs text-muted-foreground flex items-center gap-1">
+                <Clock className="w-3 h-3" />
+                {new Date(txn.date).toLocaleDateString()}
+              </span>
+              {txn.type && (
+                <span className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Tag className="w-3 h-3" />
+                  {txn.type}
+                </span>
+              )}
+              {txn.quantity != null && (
+                <span className="text-xs text-muted-foreground">
+                  {txn.quantity.toLocaleString()} shares
+                </span>
+              )}
+            </div>
+            <div className="mt-2 flex flex-wrap gap-3 text-xs text-muted-foreground">
+              {txn.price != null && <span>Trade price ${txn.price.toFixed(2)}</span>}
+              {currentPrice != null && <span>Current ${currentPrice.toFixed(2)}</span>}
+              {priceChange != null && (
+                <span className={priceChange >= 0 ? 'text-success' : 'text-destructive'}>
+                  Since trade {priceChange >= 0 ? '+' : '-'}${Math.abs(priceChange).toFixed(2)}
+                </span>
+              )}
+            </div>
+          </div>
+          <div className="text-right flex-shrink-0">
+            <p className="text-sm font-bold text-foreground">
+              ${Math.abs(txn.amount).toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
+            </p>
+            {txn.fees != null && (
+              <span className="text-[10px] text-muted-foreground">
+                Fees ${txn.fees.toFixed(2)}
+              </span>
+            )}
+          </div>
+        </div>
+      </motion.div>
+    );
+  };
 
   return (
     <AnimatePresence>
@@ -247,19 +331,19 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
               </div>
             </div>
 
-            {/* Transactions List */}
+            {/* Transactions / Holdings */}
             <div className="flex-1 overflow-y-auto scrollbar-neon p-5">
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h3 className="font-heading font-medium text-foreground text-sm">
-                    {transactionsHeading}
+                    {isInvestmentAccount ? 'Brokerage Data' : transactionsHeading}
                   </h3>
-                  {highlightedItemLabel && highlightedIds.size > 0 && (
+                  {!isInvestmentAccount && highlightedItemLabel && highlightedIds.size > 0 && (
                     <p className="text-xs text-muted-foreground mt-1">
                       Highlighting {highlightedItemDirection === 'income' ? 'income' : 'expense'} rows used for {highlightedItemLabel}
                     </p>
                   )}
-                  {mergedSources && mergedSources.length > 0 && (
+                  {!isInvestmentAccount && mergedSources && mergedSources.length > 0 && (
                     <div className="mt-2 flex flex-wrap gap-2">
                       {mergedSources.map((source) => (
                         <span
@@ -289,7 +373,7 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                 </button>
               </div>
 
-              {isLoading && transactions.length === 0 ? (
+              {isLoading && transactions.length === 0 && !investmentData ? (
                 <div className="space-y-3">
                   {Array.from({ length: 5 }).map((_, i) => (
                     <div key={i} className="shimmer h-16 rounded-xl" />
@@ -299,10 +383,81 @@ export const TransactionModal: React.FC<TransactionModalProps> = ({
                 <div className="flex flex-col items-center justify-center py-8 text-center">
                   <AlertCircle className="w-8 h-8 text-muted-foreground mb-2" />
                   <p className="text-sm text-muted-foreground">{error}</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    The projection was computed earlier, but this follow-up fetch for the account failed
-                  </p>
+                  {!isInvestmentAccount && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      The projection was computed earlier, but this follow-up fetch for the account failed
+                    </p>
+                  )}
                 </div>
+              ) : isInvestmentAccount ? (
+                holdings.length === 0 && visibleInvestmentTransactions.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-8 text-center">
+                    <CreditCard className="w-8 h-8 text-muted-foreground mb-2" />
+                    <p className="text-sm text-muted-foreground">
+                      No brokerage holdings or trade history are available yet
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Reconnect this brokerage account to grant investments access, then refresh the account card
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-5">
+                    <div>
+                      <h4 className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground mb-3">
+                        Holdings
+                      </h4>
+                      <div className="space-y-2">
+                        {holdings.map((holding) => (
+                          <div
+                            key={holding.id}
+                            className="p-3 rounded-xl border bg-muted/20 border-border/20"
+                          >
+                            <div className="flex items-start justify-between gap-3">
+                              <div className="min-w-0">
+                                <p className="text-sm font-medium text-foreground truncate">
+                                  {holding.tickerSymbol
+                                    ? `${holding.tickerSymbol} • ${holding.name}`
+                                    : holding.name}
+                                </p>
+                                <div className="mt-1 flex flex-wrap gap-3 text-xs text-muted-foreground">
+                                  <span>{holding.quantity.toLocaleString()} shares</span>
+                                  {holding.institutionPrice != null && (
+                                    <span>${holding.institutionPrice.toFixed(2)} current price</span>
+                                  )}
+                                  {holding.costBasis != null && (
+                                    <span>${holding.costBasis.toFixed(2)} cost basis</span>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="text-right flex-shrink-0">
+                                <p className="text-sm font-bold neon-text-cyan">
+                                  ${Math.abs(holding.institutionValue ?? 0).toLocaleString(undefined, {
+                                    minimumFractionDigits: 2,
+                                    maximumFractionDigits: 2,
+                                  })}
+                                </p>
+                                {holding.currentPriceAsOf && (
+                                  <p className="text-[10px] text-muted-foreground">
+                                    As of {new Date(holding.currentPriceAsOf).toLocaleDateString()}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <h4 className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground mb-3">
+                        Recent Activity
+                      </h4>
+                      <div className="space-y-2">
+                        {visibleInvestmentTransactions.map(renderInvestmentTransaction)}
+                      </div>
+                    </div>
+                  </div>
+                )
               ) : visibleTransactions.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-8 text-center">
                   <CreditCard className="w-8 h-8 text-muted-foreground mb-2" />
