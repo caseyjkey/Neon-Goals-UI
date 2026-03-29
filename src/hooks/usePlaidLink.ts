@@ -3,6 +3,7 @@ import { usePlaidLink as usePlaidLinkLib, PlaidLinkOptions, PlaidLinkOnSuccess, 
 import { plaidService, type PlaidAccount } from '@/services/plaidService';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useFinanceStore } from '@/store/useFinanceStore';
+import { useProjectionStore } from '@/store/useProjectionStore';
 
 // Lightweight account info from Plaid Link metadata (available before token exchange)
 export interface PendingPlaidAccount {
@@ -116,6 +117,9 @@ const DEMO_EXTRA_ACCOUNTS: PlaidAccount[] = [
 export const usePlaid = (): UsePlaidLinkReturn => {
   const { isDemoMode } = useAuthStore();
   const { plaidAccounts, fetchPlaidAccounts, addPlaidAccounts, removePlaidAccount, syncPlaidAccount } = useFinanceStore();
+  const fetchOverview = useProjectionStore((state) => state.fetchOverview);
+  const fetchCashflow = useProjectionStore((state) => state.fetchCashflow);
+  const fetchGoalForecasts = useProjectionStore((state) => state.fetchGoalForecasts);
   const [linkToken, setLinkToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -188,6 +192,11 @@ export const usePlaid = (): UsePlaidLinkReturn => {
       })));
       if (response.accounts) {
         addPlaidAccounts(response.accounts);
+        await Promise.all([
+          fetchOverview(),
+          fetchCashflow(),
+          fetchGoalForecasts(),
+        ]);
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to link account';
@@ -198,7 +207,7 @@ export const usePlaid = (): UsePlaidLinkReturn => {
       setPendingAccounts([]);
       setLinkToken(null);
     }
-  }, [addPlaidAccounts]);
+  }, [addPlaidAccounts, fetchOverview, fetchCashflow, fetchGoalForecasts]);
 
   const onExit: PlaidLinkOnExit = useCallback((err) => {
     if (err) {
