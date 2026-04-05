@@ -197,6 +197,15 @@ export interface MessageMetadata {
   proposalOutcome?: ProposalOutcome;
   redirectOutcome?: RedirectOutcome;
   handled?: boolean;
+  structureProposal?: {
+    title: string;
+    structure: {
+      title: string;
+      role: string;
+      children?: any[];
+    };
+    notes?: string[];
+  };
   [key: string]: any;
 }
 
