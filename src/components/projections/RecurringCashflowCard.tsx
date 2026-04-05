@@ -31,8 +31,17 @@ const CashflowRow: React.FC<{
   onMergeItems?: (source: RecurringItem, target: RecurringItem, direction: 'income' | 'expense') => void;
   draggedItem: { item: RecurringItem; direction: 'income' | 'expense' } | null;
   onDragItemChange: (item: { item: RecurringItem; direction: 'income' | 'expense' } | null) => void;
-}> = ({ item, direction, onSelectItem, onMergeItems, draggedItem, onDragItemChange }) => (
-  <motion.button
+}> = ({ item, direction, onSelectItem, onMergeItems, draggedItem, onDragItemChange }) => {
+  const [isDropTarget, setIsDropTarget] = React.useState(false);
+  const canAcceptDrop = Boolean(
+    item.accountId
+    && draggedItem
+    && draggedItem.direction === direction
+    && draggedItem.item.id !== item.id
+  );
+
+  return (
+    <motion.button
     type="button"
     whileTap={{ scale: item.accountId ? 0.985 : 1 }}
     onClick={() => item.accountId && onSelectItem?.(item, direction)}
@@ -40,14 +49,33 @@ const CashflowRow: React.FC<{
     onDragStart={() => {
       onDragItemChange({ item, direction });
     }}
-    onDragEnd={() => onDragItemChange(null)}
+    onDragEnd={() => {
+      setIsDropTarget(false);
+      onDragItemChange(null);
+    }}
+    onDragEnter={(event) => {
+      if (!canAcceptDrop) {
+        return;
+      }
+      event.preventDefault();
+      setIsDropTarget(true);
+    }}
     onDragOver={(event) => {
-      if (item.accountId) {
+      if (canAcceptDrop) {
         event.preventDefault();
+        if (!isDropTarget) {
+          setIsDropTarget(true);
+        }
+      }
+    }}
+    onDragLeave={(event) => {
+      if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+        setIsDropTarget(false);
       }
     }}
     onDrop={(event) => {
       event.preventDefault();
+      setIsDropTarget(false);
       if (!draggedItem) {
         return;
       }
@@ -62,9 +90,20 @@ const CashflowRow: React.FC<{
       item.accountId
         ? 'cursor-pointer hover:border-primary/30 hover:bg-[linear-gradient(135deg,rgba(255,255,255,0.06),rgba(34,211,238,0.12),rgba(244,114,182,0.12))] hover:shadow-[0_0_0_1px_rgba(255,255,255,0.04),0_12px_32px_rgba(34,211,238,0.08)]'
         : 'cursor-default',
+      isDropTarget && 'border-primary/50 bg-[linear-gradient(135deg,rgba(255,255,255,0.08),rgba(34,211,238,0.18),rgba(244,114,182,0.16))] shadow-[0_0_0_1px_rgba(34,211,238,0.24),0_16px_40px_rgba(34,211,238,0.14)]',
       'border-b border-border/10 last:border-b-0'
     )}
   >
+    <div
+      className={cn(
+        'pointer-events-none absolute inset-0 rounded-xl opacity-0 transition-opacity',
+        isDropTarget && 'opacity-100'
+      )}
+      aria-hidden="true"
+    >
+      <div className="absolute inset-[1px] rounded-[11px] border border-white/10" />
+      <div className="absolute inset-0 rounded-xl bg-[radial-gradient(circle_at_top,rgba(34,211,238,0.18),transparent_55%),radial-gradient(circle_at_bottom_right,rgba(244,114,182,0.18),transparent_50%)]" />
+    </div>
     <div className="flex-1 min-w-0">
       <p className="text-sm text-foreground truncate">{item.label}</p>
       <div className="flex items-center gap-2 mt-0.5">
@@ -77,11 +116,19 @@ const CashflowRow: React.FC<{
         </span>
       </div>
     </div>
-    <span className="text-sm font-medium text-foreground ml-2">
-      {formatAmount(item.amount)}
-    </span>
+    <div className="ml-2 flex flex-col items-end gap-1">
+      {isDropTarget ? (
+        <span className="rounded-full border border-primary/40 bg-background/80 px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.12em] text-primary shadow-[0_6px_18px_rgba(34,211,238,0.16)]">
+          Drop to merge
+        </span>
+      ) : null}
+      <span className="text-sm font-medium text-foreground">
+        {formatAmount(item.amount)}
+      </span>
+    </div>
   </motion.button>
-);
+  );
+};
 
 export const RecurringCashflowCard: React.FC<RecurringCashflowCardProps> = ({
   onSelectItem,

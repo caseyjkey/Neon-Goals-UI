@@ -88,4 +88,22 @@ describe('RecurringCashflowCard', () => {
 
     expect(onMergeItems).toHaveBeenCalledWith(recurringIncome[1], recurringIncome[0], 'income');
   });
+
+  it('shows a destination drop indicator only while hovering a valid merge target', () => {
+    render(<RecurringCashflowCard />);
+
+    const source = screen.getByRole('button', { name: /Bonus/i });
+    const target = screen.getByRole('button', { name: /Paycheck/i });
+
+    expect(screen.queryByText('Drop to merge')).not.toBeInTheDocument();
+
+    fireEvent.dragStart(source);
+    fireEvent.dragEnter(target);
+
+    expect(screen.getByText('Drop to merge')).toBeInTheDocument();
+
+    fireEvent.dragLeave(target, { relatedTarget: null });
+
+    expect(screen.queryByText('Drop to merge')).not.toBeInTheDocument();
+  });
 });
