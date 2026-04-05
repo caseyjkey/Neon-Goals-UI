@@ -48,7 +48,7 @@ const normalizeTarget = (value: unknown): RedirectTarget | null => {
   }
 
   if (target.type === 'category' && typeof target.categoryId === 'string' && ['items', 'finances', 'actions'].includes(target.categoryId)) {
-    return { type: 'category', categoryId: target.categoryId };
+    return { type: 'category', categoryId: target.categoryId as 'items' | 'finances' | 'actions' };
   }
 
   if (target.type === 'goal' && typeof target.goalId === 'string' && target.goalId) {
@@ -56,7 +56,7 @@ const normalizeTarget = (value: unknown): RedirectTarget | null => {
   }
 
   if (typeof target.categoryId === 'string' && ['items', 'finances', 'actions'].includes(target.categoryId)) {
-    return { type: 'category', categoryId: target.categoryId };
+    return { type: 'category', categoryId: target.categoryId as 'items' | 'finances' | 'actions' };
   }
 
   if (typeof target.goalId === 'string' && target.goalId) {

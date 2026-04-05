@@ -133,7 +133,7 @@ const normalizeMessageMetadata = (value: unknown): MessageMetadata | undefined =
   }
 
   if (typeof value.proposalOutcome === 'string') {
-    metadata.proposalOutcome = value.proposalOutcome;
+    metadata.proposalOutcome = value.proposalOutcome as MessageMetadata['proposalOutcome'];
   }
 
   if (typeof value.redirectOutcome === 'string') {
@@ -149,7 +149,7 @@ const normalizeMessageMetadata = (value: unknown): MessageMetadata | undefined =
   }
 
   if (typeof value.proposalType === 'string') {
-    metadata.proposalType = value.proposalType;
+    metadata.proposalType = value.proposalType as MessageMetadata['proposalType'];
   }
 
   if (Array.isArray(value.commands)) {
