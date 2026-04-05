@@ -25,6 +25,7 @@ import NotFound from "./pages/NotFound";
 import { apiClient } from "./services/apiClient";
 import { authService } from "./services/authService";
 import { toast } from "sonner";
+import { resolveGoalForRoute } from "./lib/goalRouteSelection";
 
 const queryClient = new QueryClient();
 
@@ -208,7 +209,7 @@ const GoalDetailPageWrapper = () => {
     };
   }, [goalId]);
 
-  const goal = goals.find(g => g.id === goalId);
+  const goal = resolveGoalForRoute(goals, goalId, currentGoalId);
 
   // Update store when URL changes (only sync from URL to store, not the reverse)
   useEffect(() => {
