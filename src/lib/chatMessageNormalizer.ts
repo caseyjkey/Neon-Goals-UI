@@ -149,7 +149,7 @@ const normalizeMessageMetadata = (value: unknown): MessageMetadata | undefined =
   }
 
   if (typeof value.proposalType === 'string') {
-    metadata.proposalType = value.proposalType;
+    metadata.proposalType = value.proposalType as MessageMetadata['proposalType'];
   }
 
   if (Array.isArray(value.commands)) {
