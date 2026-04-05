@@ -1,8 +1,8 @@
 import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { ChevronRight, Trash2, Archive, FolderOpen } from 'lucide-react';
+import { ChevronRight, Trash2, Archive } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import type { GroupGoal, ItemGoal, FinanceGoal, ActionGoal } from '@/types/goals';
+import type { GroupGoal } from '@/types/goals';
 
 interface GroupGoalCardProps {
   goal: GroupGoal;
@@ -28,11 +28,6 @@ export const GroupGoalCard: React.FC<GroupGoalCardProps> = ({
 
   const totalItems = goal.subgoals?.length || 0;
   const hiddenCount = Math.max(0, totalItems - 4);
-
-  // Calculate completion stats
-  const completedCount = useMemo(() => {
-    return goal.subgoals?.filter(g => g.status === 'completed').length || 0;
-  }, [goal.subgoals]);
 
   return (
     <motion.div
@@ -84,7 +79,7 @@ export const GroupGoalCard: React.FC<GroupGoalCardProps> = ({
             {/* Group Icon */}
             <div
               className={cn(
-                'flex-shrink-0 w-16 h-16 rounded-xl flex items-center justify-center text-3xl',
+                'flex-shrink-0 size-14 aspect-square rounded-xl flex items-center justify-center text-2xl',
                 'neon-border bg-gradient-to-br',
                 goal.color || 'from-cyan-500/20 to-purple-500/20'
               )}
@@ -94,20 +89,12 @@ export const GroupGoalCard: React.FC<GroupGoalCardProps> = ({
 
             {/* Title and Stats */}
             <div className="flex-1 min-w-0">
-              <h3 className="font-heading text-xl font-bold mb-1 truncate">
+              <h3 className="font-heading text-lg font-semibold mb-1 truncate">
                 {goal.title}
               </h3>
               <p className="text-sm text-muted-foreground line-clamp-2">
                 {goal.description}
               </p>
-
-              {/* Stats */}
-              <div className="flex items-center gap-4 mt-3 text-sm">
-                <div className="flex items-center gap-1">
-                  <span className="text-primary font-bold">{completedCount}/{totalItems}</span>
-                  <span className="text-muted-foreground">completed</span>
-                </div>
-              </div>
             </div>
 
             {/* Chevron */}

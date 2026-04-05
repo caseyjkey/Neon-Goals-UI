@@ -362,7 +362,7 @@ const mockGroupGoals: GroupGoal[] = [
         title: 'Longboard Trucks - Paris V3',
         description: '180mm reverse kingpin trucks',
         status: 'active',
-        productImage: 'https://images.unsplash.com/photo-1564594563305-2fab931e9cd4?w=400',
+        productImage: 'https://www.blackkross.com/16805-large_default/paris-v3-180mm-50.jpg',
         bestPrice: 54.99,
         currency: 'USD',
         retailerUrl: 'https://example.com/trucks',

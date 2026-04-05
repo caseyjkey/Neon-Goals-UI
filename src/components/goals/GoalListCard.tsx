@@ -7,7 +7,6 @@ import {
   RefreshCw, 
   TrendingUp, 
   TrendingDown,
-  CheckCircle2,
   Clock,
   Tag
 } from 'lucide-react';
@@ -188,7 +187,7 @@ export const GoalListCard: React.FC<GoalListCardProps> = ({
       {/* Progress Circle - smaller on mobile */}
       <div className="flex-shrink-0">
         {goal.type === 'item' ? (
-          <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-xl overflow-hidden bg-muted flex items-center justify-center">
+          <div className="size-10 shrink-0 aspect-square sm:size-14 rounded-xl overflow-hidden bg-muted flex items-center justify-center">
             {hasValidSelection(goal as ItemGoal) && (goal as ItemGoal).productImage ? (
               <img
                 src={(goal as ItemGoal).productImage}
@@ -202,13 +201,13 @@ export const GoalListCard: React.FC<GoalListCardProps> = ({
             )}
           </div>
         ) : (
-          <div className="hidden sm:block">
+          <div className="hidden shrink-0 sm:block">
             <CircularProgress progress={progress} />
           </div>
         )}
         {/* Smaller progress on mobile for non-item goals */}
         {goal.type !== 'item' && (
-          <div className="sm:hidden">
+          <div className="shrink-0 sm:hidden">
             <CircularProgress progress={progress} size={40} strokeWidth={3} />
           </div>
         )}
@@ -248,9 +247,19 @@ export const GoalListCard: React.FC<GoalListCardProps> = ({
           </div>
         )}
         {goal.type === 'action' && (
-          <div className="flex items-center gap-1 text-sm text-muted-foreground justify-end">
-            <CheckCircle2 className="w-4 h-4" />
-            {(goal as ActionGoal).tasks.filter(t => t.completed).length}/{(goal as ActionGoal).tasks.length}
+          <div className="flex max-w-28 flex-wrap justify-end gap-1.5">
+            {(goal as ActionGoal).tasks.map((task) => (
+              <div
+                key={task.id}
+                className={cn(
+                  "size-2.5 rounded-full border transition-all",
+                  task.completed
+                    ? "border-success bg-success neon-glow-lime"
+                    : "border-[color:rgba(34,211,238,0.45)] bg-[color:rgba(34,211,238,0.2)]"
+                )}
+                aria-hidden="true"
+              />
+            ))}
           </div>
         )}
         {goal.type === 'item' && hasValidSelection(goal as ItemGoal) && (

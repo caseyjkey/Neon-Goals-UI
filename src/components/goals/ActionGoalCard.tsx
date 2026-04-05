@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Trash2, CheckCircle2, Circle, ChevronDown, ChevronUp, ListTodo } from 'lucide-react';
+import { Trash2, Circle, ChevronDown, ChevronUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { getProgressBreakdown, isFullyComplete } from '@/lib/progressCalculator';
 import type { ActionGoal } from '@/types/goals';
@@ -31,8 +31,6 @@ export const ActionGoalCard: React.FC<ActionGoalCardProps> = ({
   const progressBreakdown = getProgressBreakdown(goal);
   const isComplete = isFullyComplete(goal);
   const progress = progressBreakdown.totalProgress;
-  const completedTasks = progressBreakdown.localTasksCompleted;
-  const totalTasks = progressBreakdown.localTasksTotal;
   const shouldAnimate = animationIndex >= 0;
   const subgoals = goal.subgoals || [];
 
@@ -100,7 +98,7 @@ export const ActionGoalCard: React.FC<ActionGoalCardProps> = ({
 
         {/* Progress Circle */}
         <div className="flex items-center gap-4 mb-4">
-          <div className="relative w-16 h-16">
+          <div className="relative size-16 aspect-square shrink-0">
             <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
               {/* Background circle */}
               <circle
@@ -148,59 +146,20 @@ export const ActionGoalCard: React.FC<ActionGoalCardProps> = ({
             </div>
           </div>
 
-          <div className="flex-1">
-            {/* Modular Assembly Stats */}
-            <div className="flex items-center gap-3 mb-2">
-              <div className="flex items-center gap-1.5">
-                <div className="w-2 h-2 rounded-full bg-[var(--neon-cyan)]" />
-                <span className={cn(
-                  "text-sm font-medium",
-                  isComplete ? "text-white" : "text-foreground"
-                )}>
-                  {completedTasks}/{totalTasks} tasks
-                </span>
-              </div>
-              {subgoals.length > 0 && (
-                <div className="flex items-center gap-1.5">
-                  <div className="w-2 h-2 rounded-full bg-[var(--neon-magenta)]" />
-                  <span className="text-sm text-muted-foreground">
-                    {progressBreakdown.subgoalsCompleted}/{progressBreakdown.subgoalsTotal} subgoals
-                  </span>
-                </div>
-              )}
-            </div>
-
-            {/* Task & Subgoal Dots */}
-            <div className="flex flex-wrap gap-1.5">
-              {/* Task dots - cyan */}
-              {goal.tasks.slice(0, 6).map((task) => (
+          <div className="flex min-h-16 flex-1 items-center">
+            <div className="flex flex-wrap items-center gap-2">
+              {goal.tasks.map((task) => (
                 <div
                   key={task.id}
                   className={cn(
-                    "w-2.5 h-2.5 rounded-full transition-all",
+                    "size-2.5 rounded-full border transition-all",
                     task.completed
-                      ? "bg-success neon-glow-lime"
-                      : "bg-[var(--neon-cyan)]/30"
+                      ? "border-success bg-success neon-glow-lime"
+                      : "border-[color:rgba(34,211,238,0.45)] bg-[color:rgba(34,211,238,0.2)]"
                   )}
+                  aria-hidden="true"
                 />
               ))}
-              {/* Subgoal dots - magenta */}
-              {subgoals.slice(0, 4).map((subgoal) => (
-                <div
-                  key={subgoal.id}
-                  className={cn(
-                    "w-2.5 h-2.5 rounded-sm transition-all",
-                    subgoal.status === 'completed'
-                      ? "bg-success neon-glow-lime"
-                      : "bg-[var(--neon-magenta)]/30"
-                  )}
-                />
-              ))}
-              {(goal.tasks.length > 6 || subgoals.length > 4) && (
-                <span className="text-xs text-muted-foreground ml-1">
-                  +{Math.max(0, goal.tasks.length - 6) + Math.max(0, subgoals.length - 4)}
-                </span>
-              )}
             </div>
           </div>
         </div>
