@@ -27,6 +27,7 @@ const getInitialState = () => {
 interface FinanceState {
   plaidAccounts: PlaidAccount[];
   plaidAccountsVersion: number;
+  resetStore: () => void;
   fetchPlaidAccounts: () => Promise<void>;
   addPlaidAccounts: (accounts: PlaidAccount[]) => void;
   syncPlaidAccount: (accountId: string) => Promise<void>;
@@ -37,6 +38,10 @@ interface FinanceState {
 export const useFinanceStore = create<FinanceState>()((set, get) => ({
   // Initial state from localStorage (synced with useAppStore)
   ...getInitialState(),
+  resetStore: () => set({
+    plaidAccounts: [],
+    plaidAccountsVersion: 0,
+  }),
 
   // Actions
   fetchPlaidAccounts: async () => {

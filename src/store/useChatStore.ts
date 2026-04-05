@@ -56,6 +56,31 @@ type ChatStoreInitialState = {
   activeExtractionGroups: Set<string>;
 };
 
+const createInitialChatState = (): ChatStoreInitialState => ({
+  creationChat: {
+    messages: [{
+      id: '1',
+      role: 'assistant',
+      content: "What would you like to work on today? I can help you with:\n\n- **Items** - Products you want to purchase\n- **Finances** - Money goals and tracking\n- **Actions** - Skills to learn or habits to build",
+      timestamp: new Date(),
+    }],
+    isLoading: false,
+  },
+  goalChats: {},
+  overviewChat: null,
+  categoryChats: {
+    items: null,
+    finances: null,
+    actions: null,
+  },
+  isCreatingGoal: false,
+  pendingCommands: null,
+  handledProposals: new Set<string>(),
+  latestProposalMessageIds: {},
+  activeStreams: new Set<string>(),
+  activeExtractionGroups: new Set<string>(),
+});
+
 const toStringSet = (value: unknown): Set<string> => {
   if (value instanceof Set) {
     return new Set(Array.from(value).filter((item): item is string => typeof item === 'string'));
@@ -90,8 +115,8 @@ const getInitialState = (): ChatStoreInitialState => {
         creationChat: parsed?.state?.creationChat
           ? normalizeChatState(parsed.state.creationChat)
           : {
-            messages: [{
-              id: '1',
+              messages: [{
+                id: '1',
               role: 'assistant',
               content: "What would you like to work on today? I can help you with:\n\n- **Items** - Products you want to purchase\n- **Finances** - Money goals and tracking\n- **Actions** - Skills to learn or habits to build",
               timestamp: new Date(),
@@ -112,30 +137,7 @@ const getInitialState = (): ChatStoreInitialState => {
   } catch (e) {
     console.error('Failed to parse stored chat state:', e);
   }
-  return {
-    creationChat: {
-      messages: [{
-        id: '1',
-        role: 'assistant',
-        content: "What would you like to work on today? I can help you with:\n\n- **Items** - Products you want to purchase\n- **Finances** - Money goals and tracking\n- **Actions** - Skills to learn or habits to build",
-        timestamp: new Date(),
-      }],
-      isLoading: false,
-    },
-    goalChats: {},
-    overviewChat: null,
-    categoryChats: {
-      items: null,
-      finances: null,
-      actions: null,
-    },
-    isCreatingGoal: false,
-    pendingCommands: null,
-    handledProposals: new Set<string>(),
-    latestProposalMessageIds: {},
-    activeStreams: new Set<string>(),
-    activeExtractionGroups: new Set<string>(),
-  };
+  return createInitialChatState();
 };
 
 // Helper to get isDemoMode from useAuthStore
@@ -162,6 +164,7 @@ interface ChatStoreState {
   latestProposalMessageIds: Record<string, string | null>;
   activeStreams: Set<string>;
   activeExtractionGroups: Set<string>;
+  resetStore: () => void;
 
   // Chat CRUD actions
   sendCreationMessage: (content: string) => Promise<void>;
@@ -217,6 +220,7 @@ interface ChatStoreState {
 export const useChatStore = create<ChatStoreState>()((set, get) => ({
   // Initial state from localStorage (synced with useAppStore)
   ...getInitialState(),
+  resetStore: () => set(createInitialChatState()),
 
   // ========== Creation Chat Actions ==========
 

@@ -58,6 +58,7 @@ interface GoalsState {
   goalsVersion: number;
   isLoading: boolean;
   error: string | null;
+  resetStore: () => void;
 
   // Goal CRUD actions
   fetchGoals: () => Promise<void>;
@@ -83,6 +84,12 @@ interface GoalsState {
 export const useGoalsStore = create<GoalsState>()((set, get) => ({
   // Initial state from localStorage (synced with useAppStore)
   ...getInitialState(),
+  resetStore: () => set({
+    goals: [],
+    goalsVersion: 0,
+    isLoading: false,
+    error: null,
+  }),
 
   // Goal CRUD actions
   fetchGoals: async () => {

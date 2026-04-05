@@ -28,6 +28,7 @@ interface ProjectionState {
   scenario: ProjectionScenarioResult | null;
   manualAccounts: ManualFinancialAccount[];
   manualCashflows: ManualCashflow[];
+  resetStore: () => void;
 
   // UI state
   selectedHorizon: ProjectionHorizon;
@@ -64,6 +65,21 @@ export const useProjectionStore = create<ProjectionState>()((set, get) => ({
   scenario: null,
   manualAccounts: [],
   manualCashflows: [],
+  resetStore: () => set({
+    overview: null,
+    cashflow: null,
+    goalForecasts: [],
+    scenario: null,
+    manualAccounts: [],
+    manualCashflows: [],
+    selectedHorizon: 12,
+    scenarioInputs: { ...DEFAULT_SCENARIO_INPUTS },
+    isLoadingOverview: false,
+    isLoadingCashflow: false,
+    isLoadingScenario: false,
+    isLoadingManual: false,
+    error: null,
+  }),
   selectedHorizon: 12,
   scenarioInputs: { ...DEFAULT_SCENARIO_INPUTS },
   isLoadingOverview: false,

@@ -26,6 +26,7 @@ import { mockGoalChatService } from '@/services/mockChatService';
 import { browserUseService } from '@/services/browserUseService';
 import { plaidService } from '@/services/plaidService';
 import { normalizeChatMessage } from '@/lib/chatMessageNormalizer';
+import { resetUserScopedState as resetOtherUserScopedState } from './resetUserScopedState';
 
 // Re-export types from ./types for backward compatibility
 export type { ChatCommand, PendingCommandsState } from './types';
@@ -153,6 +154,7 @@ interface AppState {
   updateSettings: (settings: Partial<Settings>) => void;
   logout: () => void;
   setDemoMode: (enabled: boolean) => void;
+  resetUserScopedState: () => void;
 
   // API integration methods
   initializeApp: () => Promise<void>;
@@ -294,6 +296,46 @@ export const useAppStore = create<AppState>()(
       triggerChatPulse: () => set((state) => ({ chatPulseTrigger: state.chatPulseTrigger + 1 })),
 
       setDemoMode: (isDemoMode) => set({ isDemoMode }),
+
+      resetUserScopedState: () => {
+        set({
+          user: null,
+          goals: [],
+          goalsVersion: 0,
+          plaidAccounts: [],
+          plaidAccountsVersion: 0,
+          currentGoalId: null,
+          goalNavigationStack: [],
+          navigationDirection: null,
+          isDemoMode: false,
+          isLoading: false,
+          error: null,
+          isCreatingGoal: false,
+          pendingCommands: null,
+          handledProposals: new Set<string>(),
+          latestProposalMessageIds: {},
+          activeStreams: new Set<string>(),
+          overviewChat: null,
+          categoryChats: {
+            items: null,
+            finances: null,
+            actions: null,
+          },
+          creationChat: {
+            messages: [
+              {
+                id: '1',
+                role: 'assistant',
+                content: "What would you like to work on today? I can help you with:\n\n- **Items** - Products you want to purchase\n- **Finances** - Money goals and tracking\n- **Actions** - Skills to learn or habits to build",
+                timestamp: new Date(),
+              },
+            ],
+            isLoading: false,
+          },
+          goalChats: {},
+        });
+        resetOtherUserScopedState();
+      },
 
       // Goal CRUD (local state updates)
       addGoal: (goal) => set((state) => ({
@@ -974,8 +1016,8 @@ export const useAppStore = create<AppState>()(
       logout: () => {
         // Use authService to clear tokens
         authService.logout();
-        // Clear user data
-        set({ user: null, goals: [] });
+        // Clear user-scoped state so the next identity starts clean
+        get().resetUserScopedState();
       },
 
       updateSettings: (newSettings) => set((state) => ({
@@ -2001,10 +2043,8 @@ export const useAppStore = create<AppState>()(
             await get().fetchGoals();
           }
         } else {
-          // No token — clear any stale persisted user
-          if (get().user) {
-            set({ user: null, goals: [] });
-          }
+          // No token — clear any stale persisted user-scoped data
+          get().resetUserScopedState();
         }
       },
 
@@ -2018,9 +2058,9 @@ export const useAppStore = create<AppState>()(
           const msg = error?.message || '';
           const is401 = error?.response?.status === 401 || error?.status === 401 || msg.includes('Session expired');
           if (is401) {
-            // Token expired — clear persisted user and redirect to login
+            // Token expired — clear all user-scoped state and redirect to login
             authService.logout();
-            set({ user: null, goals: [], error: null, isLoading: false, isDemoMode: false });
+            get().resetUserScopedState();
           } else {
             set({ error: 'Failed to fetch user profile', isLoading: false });
           }
@@ -2041,11 +2081,11 @@ export const useAppStore = create<AppState>()(
           set({ goals, isLoading: false, goalsVersion: get().goalsVersion + 1 });
         } catch (error: any) {
           console.error('Failed to fetch goals:', error);
-          // Auto-enable demo mode on 401 Unauthorized
+          // Clear state on 401 so a previous user's data cannot bleed into the next session
           if (error?.response?.status === 401 || error?.status === 401) {
-            console.log('⚠️ Authentication failed - enabling demo mode');
-            // Don't overwrite existing goals - they might be from localStorage or demo initialization
-            set({ error: null, isLoading: false, isDemoMode: true });
+            console.log('⚠️ Authentication failed - clearing user-scoped state');
+            authService.logout();
+            get().resetUserScopedState();
           } else {
             set({ error: 'Failed to fetch goals', isLoading: false });
           }

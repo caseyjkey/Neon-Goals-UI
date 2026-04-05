@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware';
 import type { User, Settings } from '@/types/goals';
 import { authService } from '@/services/authService';
 import { usersService } from '@/services/usersService';
+import { useAppStore } from './useAppStore';
 
 const defaultSettings: Settings = {
   theme: 'miami-vice',
@@ -42,7 +43,8 @@ export const useAuthStore = create<AuthState>()(
 
       logout: () => {
         authService.logout();
-        set({ user: null, isDemoMode: false });
+        useAppStore.getState().resetUserScopedState();
+        set({ user: null, isDemoMode: false, error: null, isLoading: false });
       },
 
       setDemoMode: (isDemoMode) => set({ isDemoMode }),
@@ -65,6 +67,7 @@ export const useAuthStore = create<AuthState>()(
           const is401 = error?.response?.status === 401 || error?.status === 401 || msg.includes('Session expired');
           if (is401) {
             authService.logout();
+            useAppStore.getState().resetUserScopedState();
             set({ user: null, error: null, isLoading: false, isDemoMode: false });
           } else {
             set({ error: 'Failed to fetch user profile', isLoading: false });
@@ -91,9 +94,8 @@ export const useAuthStore = create<AuthState>()(
         if (token) {
           await get().fetchUser();
         } else {
-          if (get().user && !get().isDemoMode) {
-            set({ user: null });
-          }
+          useAppStore.getState().resetUserScopedState();
+          set({ user: null, isDemoMode: false, error: null, isLoading: false });
         }
       },
     }),
