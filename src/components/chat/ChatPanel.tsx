@@ -872,6 +872,11 @@ const MessageBubble = React.forwardRef<
         />
       )}
 
+      {/* Inline structure proposal outline */}
+      {!isUser && message.metadata?.structureProposal && (
+        <ProposalOutline proposal={message.metadata.structureProposal as StructureProposal} />
+      )}
+
       {/* Inline redirect card */}
       {redirect && onRedirectGo && (
         <RedirectCard
