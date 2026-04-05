@@ -136,10 +136,10 @@ const StackCard: React.FC<{ goals: Goal[]; onClick: (id: string) => void }> = ({
         </>
       )}
       <div className="relative glass-card p-4 neon-border">
-        {goal.type === 'item' && <ItemPreview item={front as ItemGoal} />}
-        {goal.type === 'finance' && <FinancePreview finance={front as FinanceGoal} />}
-        {goal.type === 'action' && <ActionPreview action={front as ActionGoal} />}
-        {goal.type === 'group' && <GroupPreview group={front as GroupGoal} />}
+        {front.type === 'item' && <ItemPreview item={front as ItemGoal} />}
+        {front.type === 'finance' && <FinancePreview finance={front as FinanceGoal} />}
+        {front.type === 'action' && <ActionPreview action={front as ActionGoal} />}
+        {front.type === 'group' && <GroupPreview group={front as GroupGoal} />}
         <div className="absolute top-2 right-2 bg-muted/80 text-muted-foreground text-[10px] px-1.5 py-0.5 rounded-full">
           {goals.length} items
         </div>
