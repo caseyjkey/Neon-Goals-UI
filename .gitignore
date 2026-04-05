@@ -30,5 +30,10 @@ dist-ssr
 
 /generated/prisma
 .claude
+.agents/
+.codex/
+.droid/
+.gemini/
+.opencode/
 .tldr/
 thoughts/
