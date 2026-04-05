@@ -15,6 +15,8 @@ import { formatExtractionResultsForAI } from '@/hooks/useExtraction';
 import { ExtractionMessageCard } from '@/components/extraction/ExtractionMessageCard';
 import type { ExtractionResult } from '@/services/extractionService';
 import { resolveMessageRedirect, stripRedirectCommand } from '@/lib/redirectParser';
+import { ProposalOutline } from '@/components/chat/ProposalOutline';
+import type { StructureProposal } from '@/components/chat/ProposalOutline';
 import { RedirectCard } from '@/components/chat/RedirectCard';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
