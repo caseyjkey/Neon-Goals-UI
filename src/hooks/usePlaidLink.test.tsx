@@ -13,6 +13,8 @@ const mocks = vi.hoisted(() => ({
   fetchCashflow: vi.fn(),
   fetchGoalForecasts: vi.fn(),
   capturedOnSuccess: null as PlaidLinkOnSuccess | null,
+  isDemoMode: false,
+  plaidAccounts: [] as any[],
 }));
 
 vi.mock('react-plaid-link', () => ({
@@ -31,13 +33,13 @@ vi.mock('@/services/plaidService', () => ({
 
 vi.mock('@/store/useAuthStore', () => ({
   useAuthStore: () => ({
-    isDemoMode: false,
+    isDemoMode: mocks.isDemoMode,
   }),
 }));
 
 vi.mock('@/store/useFinanceStore', () => ({
   useFinanceStore: () => ({
-    plaidAccounts: [],
+    plaidAccounts: mocks.plaidAccounts,
     fetchPlaidAccounts: mocks.fetchPlaidAccounts,
     addPlaidAccounts: mocks.addPlaidAccounts,
     removePlaidAccount: mocks.removePlaidAccount,
@@ -58,6 +60,8 @@ import { usePlaid } from './usePlaidLink';
 
 describe('usePlaid link success', () => {
   beforeEach(() => {
+    mocks.isDemoMode = false;
+    mocks.plaidAccounts = [];
     mocks.capturedOnSuccess = null;
     mocks.createLinkToken.mockReset();
     mocks.linkAccount.mockReset();
@@ -68,6 +72,32 @@ describe('usePlaid link success', () => {
     mocks.fetchOverview.mockReset();
     mocks.fetchCashflow.mockReset();
     mocks.fetchGoalForecasts.mockReset();
+  });
+
+  it('fetches backend-backed plaid accounts in demo mode instead of seeding local placeholders', () => {
+    mocks.isDemoMode = true;
+
+    renderHook(() => usePlaid());
+
+    expect(mocks.fetchPlaidAccounts).toHaveBeenCalledTimes(1);
+    expect(mocks.addPlaidAccounts).not.toHaveBeenCalled();
+  });
+
+  it('requests a real link token when opening link flow in demo mode', async () => {
+    mocks.isDemoMode = true;
+    mocks.createLinkToken.mockResolvedValue({
+      link_token: 'demo-link-token',
+      expiration: '2026-04-07T00:00:00.000Z',
+      request_id: 'req_1',
+    });
+    const { result } = renderHook(() => usePlaid());
+
+    await act(async () => {
+      await result.current.open();
+    });
+
+    expect(mocks.addPlaidAccounts).not.toHaveBeenCalled();
+    expect(mocks.createLinkToken).toHaveBeenCalledTimes(1);
   });
 
   it('refreshes projection data after linking accounts', async () => {

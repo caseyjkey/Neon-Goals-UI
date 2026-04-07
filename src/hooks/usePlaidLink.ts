@@ -1,7 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { usePlaidLink as usePlaidLinkLib, PlaidLinkOptions, PlaidLinkOnSuccess, PlaidLinkOnExit } from 'react-plaid-link';
 import { plaidService, type PlaidAccount } from '@/services/plaidService';
-import { useAuthStore } from '@/store/useAuthStore';
 import { useFinanceStore } from '@/store/useFinanceStore';
 import { useProjectionStore } from '@/store/useProjectionStore';
 
@@ -27,95 +26,7 @@ interface UsePlaidLinkReturn {
   isSyncing: string | null;
 }
 
-// Demo Plaid accounts for demonstration
-const DEMO_PLAID_ACCOUNTS: PlaidAccount[] = [
-  {
-    id: 'demo-checking-1',
-    plaidAccountId: 'demo-plaid-checking-1',
-    accountName: 'Everyday Checking',
-    accountType: 'depository',
-    accountSubtype: 'checking',
-    currentBalance: 4823.47,
-    currency: 'USD',
-    mask: '1234',
-    institutionName: 'Chase',
-  },
-  {
-    id: 'demo-savings-1',
-    plaidAccountId: 'demo-plaid-savings-1',
-    accountName: 'High Yield Savings',
-    accountType: 'depository',
-    accountSubtype: 'savings',
-    currentBalance: 18250.00,
-    currency: 'USD',
-    mask: '5678',
-    institutionName: 'Ally',
-  },
-  {
-    id: 'demo-brokerage-1',
-    plaidAccountId: 'demo-plaid-brokerage-1',
-    accountName: 'Individual Brokerage',
-    accountType: 'investment',
-    accountSubtype: 'brokerage',
-    currentBalance: 32450.82,
-    currency: 'USD',
-    mask: '9012',
-    institutionName: 'Schwab',
-  },
-  {
-    id: 'demo-roth-1',
-    plaidAccountId: 'demo-plaid-roth-1',
-    accountName: 'Roth IRA',
-    accountType: 'investment',
-    accountSubtype: 'roth',
-    currentBalance: 15780.33,
-    currency: 'USD',
-    mask: '3456',
-    institutionName: 'Fidelity',
-  },
-  {
-    id: 'demo-credit-1',
-    plaidAccountId: 'demo-plaid-credit-1',
-    accountName: 'Rewards Credit Card',
-    accountType: 'credit',
-    accountSubtype: 'credit_card',
-    currentBalance: 1245.60,
-    currency: 'USD',
-    mask: '7890',
-    institutionName: 'Capital One',
-    isDebt: true,
-  },
-];
-
-// Extra demo accounts added when user clicks "Link Account" in demo mode
-const DEMO_EXTRA_ACCOUNTS: PlaidAccount[] = [
-  {
-    id: 'demo-401k-1',
-    plaidAccountId: 'demo-plaid-401k-1',
-    accountName: '401(k)',
-    accountType: 'investment',
-    accountSubtype: '401k',
-    currentBalance: 67320.15,
-    currency: 'USD',
-    mask: '2468',
-    institutionName: 'Vanguard',
-  },
-  {
-    id: 'demo-student-1',
-    plaidAccountId: 'demo-plaid-student-1',
-    accountName: 'Student Loan',
-    accountType: 'loan',
-    accountSubtype: 'student',
-    currentBalance: 12400.00,
-    currency: 'USD',
-    mask: '1357',
-    institutionName: 'Mohela',
-    isDebt: true,
-  },
-];
-
 export const usePlaid = (): UsePlaidLinkReturn => {
-  const { isDemoMode } = useAuthStore();
   const { plaidAccounts, fetchPlaidAccounts, addPlaidAccounts, removePlaidAccount, syncPlaidAccount } = useFinanceStore();
   const fetchOverview = useProjectionStore((state) => state.fetchOverview);
   const fetchCashflow = useProjectionStore((state) => state.fetchCashflow);
@@ -129,16 +40,8 @@ export const usePlaid = (): UsePlaidLinkReturn => {
 
   // Fetch existing linked accounts on mount
   const fetchAccounts = useCallback(async () => {
-    // In demo mode, seed with first 2 accounts if none exist
-    if (isDemoMode) {
-      if (plaidAccounts.length === 0) {
-        addPlaidAccounts(DEMO_PLAID_ACCOUNTS.slice(0, 2));
-      }
-      return;
-    }
-
     await fetchPlaidAccounts();
-  }, [isDemoMode, fetchPlaidAccounts, addPlaidAccounts, plaidAccounts.length]);
+  }, [fetchPlaidAccounts]);
 
   useEffect(() => {
     fetchAccounts();
@@ -237,39 +140,6 @@ export const usePlaid = (): UsePlaidLinkReturn => {
   const handleOpen = useCallback(async () => {
     console.log('[usePlaid] Opening Plaid Link...');
 
-    // In demo mode, simulate Plaid linking with a delay
-    if (isDemoMode) {
-      // Read current accounts directly from store to avoid stale closure
-      const currentAccounts = useFinanceStore.getState().plaidAccounts;
-      const existingIds = new Set(currentAccounts.map(a => a.id));
-      const allDemo = [...DEMO_PLAID_ACCOUNTS, ...DEMO_EXTRA_ACCOUNTS];
-      const remaining = allDemo.filter(a => !existingIds.has(a.id));
-      if (remaining.length === 0) return; // All demo accounts already linked
-
-      // Add at most 2 accounts per "link"
-      const newAccounts = remaining.slice(0, 2);
-
-      // Show pending skeletons immediately (simulates Plaid metadata)
-      setIsLoading(true);
-      setPendingAccounts(
-        newAccounts.map(a => ({
-          name: a.accountName,
-          mask: a.mask,
-          type: a.accountType,
-          subtype: a.accountSubtype || '',
-          institutionName: a.institutionName,
-        }))
-      );
-
-      // Simulate token exchange delay, then add real accounts
-      setTimeout(() => {
-        addPlaidAccounts(newAccounts);
-        setPendingAccounts([]);
-        setIsLoading(false);
-      }, 3000);
-      return;
-    }
-
     // Create a fresh token
     const token = await createLinkToken();
     if (!token) {
@@ -296,7 +166,7 @@ export const usePlaid = (): UsePlaidLinkReturn => {
         console.error('[usePlaid] Timeout waiting for Plaid Link to be ready');
       }
     }, 5000);
-  }, [createLinkToken, isDemoMode]);
+  }, [createLinkToken]);
 
   const syncAccount = useCallback(async (accountId: string) => {
     try {

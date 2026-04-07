@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import type { PlaidAccount } from '@/services/plaidService';
 import type { FinanceGoal } from '@/types/goals';
 import { plaidService } from '@/services/plaidService';
+import { sanitizePersistedPlaidAccounts } from '@/lib/sanitizePlaidAccounts';
 
 // Read initial state from useAppStore's localStorage
 // This keeps the slice in sync with the main store during the migration
@@ -11,7 +12,7 @@ const getInitialState = () => {
     if (stored) {
       const parsed = JSON.parse(stored);
       return {
-        plaidAccounts: parsed?.state?.plaidAccounts ?? [],
+        plaidAccounts: sanitizePersistedPlaidAccounts(parsed?.state?.plaidAccounts ?? []),
         plaidAccountsVersion: parsed?.state?.plaidAccountsVersion ?? 0,
       };
     }
