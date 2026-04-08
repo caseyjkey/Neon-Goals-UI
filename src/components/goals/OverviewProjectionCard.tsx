@@ -134,7 +134,7 @@ export const OverviewProjectionCard: React.FC<OverviewProjectionCardProps> = ({ 
         {overview && (
           <div className="space-y-3">
             {/* Insight headline */}
-            <div className="flex items-start gap-3">
+            <div className="flex items-center gap-3">
               <div className="w-7 h-7 rounded-md bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/20 flex items-center justify-center flex-shrink-0">
                 <Sparkles className="w-4 h-4 text-primary" />
               </div>
