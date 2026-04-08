@@ -80,8 +80,8 @@ export const ProjectionChartCard: React.FC = () => {
         Net Worth Trajectory
       </p>
 
-      <ResponsiveContainer width="100%" height={240}>
-        <AreaChart data={chartData} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+      <ResponsiveContainer width="100%" height={180}>
+        <AreaChart data={chartData} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
           <defs>
             <linearGradient id="projGradient" x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="hsl(186 100% 50%)" stopOpacity={0.3} />
@@ -106,6 +106,7 @@ export const ProjectionChartCard: React.FC = () => {
             tick={{ fontSize: 10, fill: 'hsl(220 15% 65%)' }}
             tickFormatter={formatAxis}
             width={50}
+            domain={yDomain}
           />
 
           <Tooltip
