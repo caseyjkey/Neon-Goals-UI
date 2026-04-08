@@ -118,8 +118,13 @@ const Index = () => {
             </p>
           </div>
 
-          {/* Financial Summary (only show on all or finance category) */}
-          {(activeCategory === 'all' || activeCategory === 'finances') && (
+          {/* Projection Card on overview (motivation-first, lightweight) */}
+          {activeCategory === 'all' && (
+            <OverviewProjectionCard className="mb-6" />
+          )}
+
+          {/* Full Financial Summary on finance category (detailed, analytical) */}
+          {activeCategory === 'finances' && (
             <FinancialSummary className="mb-6" />
           )}
 
