@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { usePlaidLink as usePlaidLinkLib, PlaidLinkOptions, PlaidLinkOnSuccess, PlaidLinkOnExit } from 'react-plaid-link';
 import { plaidService, type PlaidAccount } from '@/services/plaidService';
+import { ApiClientError } from '@/services/apiClient';
 import { useFinanceStore } from '@/store/useFinanceStore';
 import { useProjectionStore } from '@/store/useProjectionStore';
 
@@ -22,8 +23,10 @@ interface UsePlaidLinkReturn {
   pendingAccounts: PendingPlaidAccount[];
   fetchAccounts: () => Promise<void>;
   syncAccount: (accountId: string) => Promise<void>;
+  reconnectAccount: (accountId: string) => Promise<void>;
   removeAccount: (accountId: string) => Promise<void>;
   isSyncing: string | null;
+  reconnectRequiredAccounts: Record<string, string>;
 }
 
 export const usePlaid = (): UsePlaidLinkReturn => {
@@ -36,7 +39,9 @@ export const usePlaid = (): UsePlaidLinkReturn => {
   const [error, setError] = useState<string | null>(null);
   const [isSyncing, setIsSyncing] = useState<string | null>(null);
   const [pendingAccounts, setPendingAccounts] = useState<PendingPlaidAccount[]>([]);
+  const [reconnectRequiredAccounts, setReconnectRequiredAccounts] = useState<Record<string, string>>({});
   const openRef = useRef<(() => void) | null>(null);
+  const reconnectingAccountIdRef = useRef<string | null>(null);
 
   // Fetch existing linked accounts on mount
   const fetchAccounts = useCallback(async () => {
@@ -46,6 +51,17 @@ export const usePlaid = (): UsePlaidLinkReturn => {
   useEffect(() => {
     fetchAccounts();
   }, [fetchAccounts]);
+
+  const clearReconnectRequirement = useCallback((accountIds: string[]) => {
+    if (accountIds.length === 0) return;
+    setReconnectRequiredAccounts((current) => {
+      const next = { ...current };
+      for (const id of accountIds) {
+        delete next[id];
+      }
+      return next;
+    });
+  }, []);
 
   // Create link token when needed
   const createLinkToken = useCallback(async () => {
@@ -95,6 +111,11 @@ export const usePlaid = (): UsePlaidLinkReturn => {
       })));
       if (response.accounts) {
         addPlaidAccounts(response.accounts);
+        clearReconnectRequirement([
+          ...response.accounts.map((account) => account.id),
+          ...(reconnectingAccountIdRef.current ? [reconnectingAccountIdRef.current] : []),
+        ]);
+        reconnectingAccountIdRef.current = null;
         await Promise.all([
           fetchOverview(),
           fetchCashflow(),
@@ -109,8 +130,9 @@ export const usePlaid = (): UsePlaidLinkReturn => {
       setIsLoading(false);
       setPendingAccounts([]);
       setLinkToken(null);
+      openRef.current = null;
     }
-  }, [addPlaidAccounts, fetchOverview, fetchCashflow, fetchGoalForecasts]);
+  }, [addPlaidAccounts, clearReconnectRequirement, fetchOverview, fetchCashflow, fetchGoalForecasts]);
 
   const onExit: PlaidLinkOnExit = useCallback((err) => {
     if (err) {
@@ -118,6 +140,27 @@ export const usePlaid = (): UsePlaidLinkReturn => {
       setError(err.display_message || 'Plaid Link was closed');
     }
     setLinkToken(null);
+    openRef.current = null;
+  }, []);
+
+  const openWithToken = useCallback((token: string) => {
+    openRef.current = null;
+    setLinkToken(token);
+
+    const checkReady = setInterval(() => {
+      if (openRef.current) {
+        clearInterval(checkReady);
+        console.log('[usePlaid] Plaid Link is ready, opening...');
+        openRef.current();
+      }
+    }, 100);
+
+    setTimeout(() => {
+      clearInterval(checkReady);
+      if (!openRef.current) {
+        console.error('[usePlaid] Timeout waiting for Plaid Link to be ready');
+      }
+    }, 5000);
   }, []);
 
   // Only initialize Plaid Link when we have a token
@@ -148,49 +191,57 @@ export const usePlaid = (): UsePlaidLinkReturn => {
     }
 
     // Set the token - this will trigger the Plaid Link initialization
-    setLinkToken(token);
+    openWithToken(token);
+  }, [createLinkToken, openWithToken]);
 
-    // Wait for Plaid Link to become ready, then open
-    const checkReady = setInterval(() => {
-      if (openRef.current) {
-        clearInterval(checkReady);
-        console.log('[usePlaid] Plaid Link is ready, opening...');
-        openRef.current();
-      }
-    }, 100);
-
-    // Timeout after 5 seconds
-    setTimeout(() => {
-      clearInterval(checkReady);
-      if (!openRef.current) {
-        console.error('[usePlaid] Timeout waiting for Plaid Link to be ready');
-      }
-    }, 5000);
-  }, [createLinkToken]);
+  const reconnectAccount = useCallback(async (accountId: string) => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      reconnectingAccountIdRef.current = accountId;
+      const response = await plaidService.createReconnectLinkToken(accountId, 'investments');
+      openWithToken(response.link_token);
+    } catch (err) {
+      reconnectingAccountIdRef.current = null;
+      const message = err instanceof Error ? err.message : 'Failed to reconnect account';
+      setError(message);
+      console.error('[usePlaid] Failed to create reconnect link token:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [openWithToken]);
 
   const syncAccount = useCallback(async (accountId: string) => {
     try {
       setIsSyncing(accountId);
       await syncPlaidAccount(accountId);
+      clearReconnectRequirement([accountId]);
     } catch (err) {
+      if (err instanceof ApiClientError && err.code === 'PLAID_INVESTMENTS_CONSENT_REQUIRED') {
+        setReconnectRequiredAccounts((current) => ({
+          ...current,
+          [accountId]: err.message,
+        }));
+      }
       console.error('Failed to sync account:', err);
       throw err;
     } finally {
       setIsSyncing(null);
     }
-  }, [syncPlaidAccount]);
+  }, [clearReconnectRequirement, syncPlaidAccount]);
 
   const removeAccount = useCallback(async (accountId: string) => {
     try {
       setIsLoading(true);
       await removePlaidAccount(accountId);
+      clearReconnectRequirement([accountId]);
     } catch (err) {
       console.error('Failed to remove account:', err);
       throw err;
     } finally {
       setIsLoading(false);
     }
-  }, [removePlaidAccount]);
+  }, [clearReconnectRequirement, removePlaidAccount]);
 
   return {
     open: handleOpen,
@@ -201,7 +252,9 @@ export const usePlaid = (): UsePlaidLinkReturn => {
     pendingAccounts,
     fetchAccounts,
     syncAccount,
+    reconnectAccount,
     removeAccount,
     isSyncing,
+    reconnectRequiredAccounts,
   };
 };

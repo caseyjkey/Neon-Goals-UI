@@ -12,6 +12,7 @@ import { TransactionModal } from '@/components/plaid/TransactionModal';
 import { usePlaid, type PendingPlaidAccount } from '@/hooks/usePlaidLink';
 import { SyncToast, useSyncToast } from '@/components/ui/SyncToast';
 import type { PlaidAccount } from '@/services/plaidService';
+import { ApiClientError } from '@/services/apiClient';
 import { ProjectionHero } from '@/components/projections/ProjectionHero';
 import { ProjectionChartCard } from '@/components/projections/ProjectionChartCard';
 import { GoalForecastCard } from '@/components/projections/GoalForecastCard';
@@ -97,7 +98,19 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({ className })
     category?: string;
   } | null>(null);
   const syncToast = useSyncToast();
-  const { open: openPlaidLink, isLoading: isPlaidLoading, error: plaidError, accounts, pendingAccounts, syncAccount, removeAccount, isSyncing, fetchAccounts } = usePlaid();
+  const {
+    open: openPlaidLink,
+    isLoading: isPlaidLoading,
+    error: plaidError,
+    accounts,
+    pendingAccounts,
+    syncAccount,
+    reconnectAccount,
+    removeAccount,
+    isSyncing,
+    fetchAccounts,
+    reconnectRequiredAccounts,
+  } = usePlaid();
   const finicityEnabled = import.meta.env.VITE_ENABLE_FINICITY_PROBE === 'true';
   const refreshProjectionData = React.useCallback(async () => {
     await Promise.all([
@@ -143,14 +156,34 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({ className })
     syncToast.showSyncing('Updating all accounts...');
 
     try {
+      let syncedCount = 0;
+      let reconnectCount = 0;
+
       // Sync Plaid accounts
       for (const account of accounts) {
-        await syncAccount(account.id);
+        try {
+          await syncAccount(account.id);
+          syncedCount += 1;
+        } catch (error) {
+          if (error instanceof ApiClientError && error.code === 'PLAID_INVESTMENTS_CONSENT_REQUIRED') {
+            reconnectCount += 1;
+            continue;
+          }
+          throw error;
+        }
       }
       // Sync finance goals
       financeGoals.forEach(goal => syncFinanceGoal(goal.id, goals));
       await refreshProjectionData();
-      syncToast.showSuccess(`${accounts.length} accounts synced`);
+      if (reconnectCount > 0) {
+        syncToast.showError(
+          reconnectCount === 1
+            ? '1 investment account needs reconnect'
+            : `${reconnectCount} investment accounts need reconnect`
+        );
+      } else {
+        syncToast.showSuccess(`${syncedCount} accounts synced`);
+      }
     } catch (error) {
       syncToast.showError('Could not sync accounts');
     } finally {
@@ -159,8 +192,16 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({ className })
   };
 
   const handleAccountSync = async (accountId: string) => {
-    await syncAccount(accountId);
-    await refreshProjectionData();
+    try {
+      await syncAccount(accountId);
+      await refreshProjectionData();
+    } catch (error) {
+      if (error instanceof ApiClientError && error.code === 'PLAID_INVESTMENTS_CONSENT_REQUIRED') {
+        syncToast.showError('Reconnect this investment account to grant investments access');
+        return;
+      }
+      throw error;
+    }
   };
 
   const handleAccountClick = (accountId: string) => {
@@ -461,9 +502,11 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({ className })
                 emptyType="cash"
                 onAddAccount={openAddDialog}
                 onSync={handleAccountSync}
+                onReconnect={reconnectAccount}
                 onClick={handleAccountClick}
                 isSyncing={isSyncing}
                 isPlaidLoading={isPlaidLoading}
+                reconnectRequiredAccounts={reconnectRequiredAccounts}
               />
 
               {/* Investments & Retirement Section */}
@@ -478,9 +521,11 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({ className })
                 emptyType="investments"
                 onAddAccount={openAddDialog}
                 onSync={handleAccountSync}
+                onReconnect={reconnectAccount}
                 onClick={handleAccountClick}
                 isSyncing={isSyncing}
                 isPlaidLoading={isPlaidLoading}
+                reconnectRequiredAccounts={reconnectRequiredAccounts}
               />
 
               {/* Credit & Loans Section */}
@@ -495,9 +540,11 @@ export const FinancialSummary: React.FC<FinancialSummaryProps> = ({ className })
                 emptyType="credit"
                 onAddAccount={openAddDialog}
                 onSync={handleAccountSync}
+                onReconnect={reconnectAccount}
                 onClick={handleAccountClick}
                 isSyncing={isSyncing}
                 isPlaidLoading={isPlaidLoading}
+                reconnectRequiredAccounts={reconnectRequiredAccounts}
               />
             </div>
           </motion.div>
@@ -563,9 +610,11 @@ interface AccountSectionProps {
   emptyType: 'cash' | 'investments' | 'credit';
   onAddAccount: () => void;
   onSync: (accountId: string) => void;
+  onReconnect: (accountId: string) => void;
   onClick: (accountId: string) => void;
   isSyncing: string | null;
   isPlaidLoading: boolean;
+  reconnectRequiredAccounts: Record<string, string>;
 }
 
 // Skeleton card that mimics PlaidAccountCard shape, optionally showing real account info
@@ -600,9 +649,11 @@ const AccountSection: React.FC<AccountSectionProps> = ({
   emptyType,
   onAddAccount,
   onSync,
+  onReconnect,
   onClick,
   isSyncing,
   isPlaidLoading,
+  reconnectRequiredAccounts,
 }) => {
   const hasPending = pendingAccounts.length > 0;
 
@@ -631,8 +682,10 @@ const AccountSection: React.FC<AccountSectionProps> = ({
               key={account.id}
               account={account}
               onSync={onSync}
+              onReconnect={onReconnect}
               onClick={onClick}
               isSyncing={isSyncing === account.id}
+              reconnectRequiredMessage={reconnectRequiredAccounts[account.id]}
             />
           ))}
           {pendingAccounts.map((pending, i) => (

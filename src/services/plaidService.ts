@@ -96,6 +96,12 @@ export const plaidService = {
     return apiClient.post<LinkTokenResponse>('/plaid/create-link-token');
   },
 
+  async createReconnectLinkToken(accountId: string, product: 'investments' = 'investments'): Promise<LinkTokenResponse> {
+    return apiClient.post<LinkTokenResponse>(`/plaid/accounts/${accountId}/reconnect-link-token`, {
+      product,
+    });
+  },
+
   /** Exchange public token and save accounts */
   async linkAccount(publicToken: string): Promise<LinkAccountResponse> {
     return apiClient.post<LinkAccountResponse>('/plaid/link-account', {

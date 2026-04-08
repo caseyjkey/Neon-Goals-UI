@@ -2,6 +2,26 @@ import { API_BASE_URL } from '@/lib/apiConfig';
 
 type UnauthorizedCallback = () => void;
 
+export class ApiClientError extends Error {
+  status: number;
+  code?: string;
+  reconnectRequired?: boolean;
+  payload?: unknown;
+
+  constructor(
+    message: string,
+    status: number,
+    options: { code?: string; reconnectRequired?: boolean; payload?: unknown } = {},
+  ) {
+    super(message);
+    this.name = 'ApiClientError';
+    this.status = status;
+    this.code = options.code;
+    this.reconnectRequired = options.reconnectRequired;
+    this.payload = options.payload;
+  }
+}
+
 class ApiClient {
   private baseUrl: string;
   private token: string | null = null;
@@ -94,7 +114,14 @@ class ApiClient {
       const error = await response.json().catch(() => ({
         message: response.statusText,
       }));
-      throw new Error(error.message || 'An error occurred');
+      const message = Array.isArray(error?.message)
+        ? error.message.join(', ')
+        : error?.message || 'An error occurred';
+      throw new ApiClientError(message, response.status, {
+        code: error?.code,
+        reconnectRequired: error?.reconnectRequired,
+        payload: error,
+      });
     }
 
     return response.json();

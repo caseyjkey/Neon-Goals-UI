@@ -1,14 +1,16 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { RefreshCw, TrendingUp, TrendingDown } from 'lucide-react';
+import { RefreshCw, Link2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { PlaidAccount } from '@/services/plaidService';
 
 interface PlaidAccountCardProps {
   account: PlaidAccount;
   onSync?: (accountId: string) => void;
+  onReconnect?: (accountId: string) => void;
   onClick?: (accountId: string) => void;
   isSyncing?: boolean;
+  reconnectRequiredMessage?: string;
 }
 
 // Default institution icons by name
@@ -77,8 +79,10 @@ const getAccountTypeLabel = (type: string, subtype?: string): { label: string } 
 export const PlaidAccountCard: React.FC<PlaidAccountCardProps> = ({
   account,
   onSync,
+  onReconnect,
   onClick,
   isSyncing = false,
+  reconnectRequiredMessage,
 }) => {
   const isDebt = account.isDebt || isDebtType(account.accountType, account.accountSubtype);
   const displayBalance = Math.abs(account.currentBalance);
@@ -110,10 +114,28 @@ export const PlaidAccountCard: React.FC<PlaidAccountCardProps> = ({
         <p className="text-xs text-muted-foreground truncate">
           {account.institutionName}
         </p>
+        {reconnectRequiredMessage && (
+          <p className="text-[11px] text-amber-600 truncate">
+            Reconnect required for investments
+          </p>
+        )}
       </div>
 
       {/* Sync Button */}
-      {onSync && (
+      {reconnectRequiredMessage && onReconnect ? (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            onReconnect(account.id);
+          }}
+          className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-amber-500/10 text-amber-700 transition-colors hover:bg-amber-500/20"
+          aria-label="Reconnect account"
+          title={reconnectRequiredMessage}
+        >
+          <Link2 className="w-3.5 h-3.5" />
+          <span className="text-[11px] font-medium">Reconnect</span>
+        </button>
+      ) : onSync && (
         <div className="relative rounded-lg">
           {isSyncing && (
             <div className="pointer-events-none absolute inset-0 rounded-lg overflow-hidden">

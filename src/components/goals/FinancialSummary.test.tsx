@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const openPlaidLink = vi.fn();
 const syncAccount = vi.fn();
+const reconnectAccount = vi.fn();
 const removeAccount = vi.fn();
 const fetchAccounts = vi.fn();
 const showSyncing = vi.fn();
@@ -14,6 +15,7 @@ const fetchCashflow = vi.fn();
 const fetchGoalForecasts = vi.fn();
 const fetchManualAccounts = vi.fn();
 const fetchManualCashflows = vi.fn();
+let reconnectRequiredAccounts: Record<string, string> = {};
 
 vi.mock('@/store/useGoalsStore', () => ({
   useGoalsStore: () => ({ goals: [] }),
@@ -56,8 +58,10 @@ vi.mock('@/hooks/usePlaidLink', () => ({
     pendingAccounts: [],
     fetchAccounts,
     syncAccount,
+    reconnectAccount,
     removeAccount,
     isSyncing: null,
+    reconnectRequiredAccounts,
   }),
 }));
 
@@ -114,9 +118,11 @@ describe('FinancialSummary add account modal', () => {
   beforeEach(() => {
     openPlaidLink.mockReset();
     syncAccount.mockReset();
+    reconnectAccount.mockReset();
     showSyncing.mockReset();
     showSuccess.mockReset();
     showError.mockReset();
+    reconnectRequiredAccounts = {};
     fetchOverview.mockReset();
     fetchCashflow.mockReset();
     fetchGoalForecasts.mockReset();
@@ -166,5 +172,30 @@ describe('FinancialSummary add account modal', () => {
     expect(fetchOverview).toHaveBeenCalledTimes(1);
     expect(fetchCashflow).toHaveBeenCalledTimes(1);
     expect(fetchGoalForecasts).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders a reconnect action for accounts that require investment consent', () => {
+    reconnectRequiredAccounts = {
+      acct_1: 'Reconnect this investment account to grant investments access.',
+    };
+
+    render(<FinancialSummary />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Toggle accounts' }));
+
+    expect(screen.getByRole('button', { name: 'Reconnect account' })).toBeInTheDocument();
+  });
+
+  it('opens Plaid reconnect flow from a reconnect-required account card', () => {
+    reconnectRequiredAccounts = {
+      acct_1: 'Reconnect this investment account to grant investments access.',
+    };
+
+    render(<FinancialSummary />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Toggle accounts' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Reconnect account' }));
+
+    expect(reconnectAccount).toHaveBeenCalledWith('acct_1');
   });
 });
