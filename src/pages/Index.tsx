@@ -4,6 +4,7 @@ import { SIDEBAR_WIDTH, SIDEBAR_HANDLE_WIDTH } from '@/components/layout/Sidebar
 import { GoalGrid } from '@/components/goals/GoalGrid';
 import { GoalDetailView } from '@/components/goals/GoalDetailView';
 import { FinancialSummary } from '@/components/goals/FinancialSummary';
+import { OverviewProjectionCard } from '@/components/goals/OverviewProjectionCard';
 import { GoalSortBar } from '@/components/goals/GoalSortBar';
 import { useViewStore } from '@/store/useViewStore';
 import { useGoalsStore } from '@/store/useGoalsStore';
@@ -118,8 +119,13 @@ const Index = () => {
             </p>
           </div>
 
-          {/* Financial Summary (only show on all or finance category) */}
-          {(activeCategory === 'all' || activeCategory === 'finances') && (
+          {/* Projection Card on overview (motivation-first, lightweight) */}
+          {activeCategory === 'all' && (
+            <OverviewProjectionCard className="mb-6" />
+          )}
+
+          {/* Full Financial Summary on finance category (detailed, analytical) */}
+          {activeCategory === 'finances' && (
             <FinancialSummary className="mb-6" />
           )}
 
