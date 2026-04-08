@@ -4,6 +4,7 @@ import { SIDEBAR_WIDTH, SIDEBAR_HANDLE_WIDTH } from '@/components/layout/Sidebar
 import { GoalGrid } from '@/components/goals/GoalGrid';
 import { GoalDetailView } from '@/components/goals/GoalDetailView';
 import { FinancialSummary } from '@/components/goals/FinancialSummary';
+import { OverviewProjectionCard } from '@/components/goals/OverviewProjectionCard';
 import { GoalSortBar } from '@/components/goals/GoalSortBar';
 import { useViewStore } from '@/store/useViewStore';
 import { useGoalsStore } from '@/store/useGoalsStore';
