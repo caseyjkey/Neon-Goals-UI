@@ -57,13 +57,26 @@ export const ProjectionChartCard: React.FC = () => {
   // Goal milestones
   const milestones = overview?.goalMilestones ?? [];
 
+  // Compute tight Y domain: start slightly below min, end slightly above max
+  const allValues = chartData.map((d) => d.value);
+  if (scenario) {
+    chartData.forEach((d) => { if (d.scenario !== undefined) allValues.push(d.scenario); });
+  }
+  const minVal = Math.min(...allValues);
+  const maxVal = Math.max(...allValues);
+  const padding = Math.max((maxVal - minVal) * 0.1, 100);
+  const yDomain: [number, number] = [
+    Math.floor((minVal - padding) / 100) * 100,
+    Math.ceil((maxVal + padding) / 100) * 100,
+  ];
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="rounded-xl bg-muted/20 border border-border/20 p-4"
+      className="rounded-xl bg-muted/20 border border-border/20 p-3"
     >
-      <p className="text-xs text-muted-foreground mb-3 font-medium">
+      <p className="text-xs text-muted-foreground mb-2 font-medium">
         Net Worth Trajectory
       </p>
 
