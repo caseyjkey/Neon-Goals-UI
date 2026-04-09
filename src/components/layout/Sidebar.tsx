@@ -314,9 +314,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ className, isGoalView = false 
                 >
                   <div className="flex items-center gap-2">
                     <span className="text-lg">
-                      {goal.type === 'item' && '🛒'}
+                    {goal.type === 'item' && '🛒'}
                       {goal.type === 'finance' && '💰'}
                       {goal.type === 'action' && '🎯'}
+                      {goal.type === 'group' && '📦'}
                     </span>
                     <div className="flex-1 min-w-0">
                       <p className="font-medium text-sm text-foreground truncate">

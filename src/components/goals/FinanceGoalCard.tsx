@@ -78,7 +78,7 @@ export const FinanceGoalCard: React.FC<FinanceGoalCardProps> = ({
       >
         {/* Header */}
         <div className="flex items-start gap-3 mb-4">
-          <div className="w-12 h-12 rounded-xl bg-gradient-sunset flex items-center justify-center text-2xl">
+          <div className="size-10 rounded-xl bg-gradient-sunset flex items-center justify-center text-xl">
             {goal.institutionIcon}
           </div>
           <div>
