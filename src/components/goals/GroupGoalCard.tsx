@@ -79,8 +79,8 @@ export const GroupGoalCard: React.FC<GroupGoalCardProps> = ({
             {/* Group Icon */}
             <div
               className={cn(
-                'flex-shrink-0 size-10 aspect-square rounded-xl flex items-center justify-center text-xl',
-                'neon-border bg-gradient-to-br',
+                'flex-shrink-0 size-10 aspect-square rounded-lg flex items-center justify-center text-xl',
+                'border border-border/50 bg-gradient-to-br',
                 goal.color || 'from-cyan-500/20 to-purple-500/20'
               )}
             >
