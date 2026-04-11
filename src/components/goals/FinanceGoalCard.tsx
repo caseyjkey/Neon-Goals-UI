@@ -146,20 +146,21 @@ export const FinanceGoalCard: React.FC<FinanceGoalCardProps> = ({
           </div>
         </div>
 
-        {/* Mini Sparkline */}
-        <div className="flex items-end justify-between h-10 gap-0.5">
-          {goal.progressHistory.map((value, index) => {
-            const height = ((value - minVal) / range) * 100;
-            const isLast = index === goal.progressHistory.length - 1;
+        {/* Comparative Progress Chart */}
+        <div className="flex items-end justify-between h-10 gap-1">
+          {allFinanceGoals.map((fg) => {
+            const fgProgress = Math.min((fg.currentBalance / fg.targetBalance) * 100, 100);
+            const isCurrent = fg.id === goal.id;
 
             return (
               <div
-                key={index}
+                key={fg.id}
                 className={cn(
                   "flex-1 rounded-t transition-all",
-                  isLast ? "bg-gradient-neon" : "bg-muted-foreground/30"
+                  isCurrent ? "bg-gradient-neon" : "bg-muted-foreground/30"
                 )}
-                style={{ height: `${Math.max(height, 10)}%` }}
+                style={{ height: `${Math.max(fgProgress, 5)}%` }}
+                title={`${fg.title}: ${fgProgress.toFixed(0)}%`}
               />
             );
           })}
