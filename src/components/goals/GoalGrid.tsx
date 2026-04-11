@@ -312,7 +312,7 @@ const GoalCardWrapper = React.forwardRef<
       return (
         <FinanceGoalCard
           goal={goal as FinanceGoal}
-          allFinanceGoals={goals.filter(g => g.type === 'finance' && g.status === 'active' && !g.parentGoalId) as FinanceGoal[]}
+          allFinanceGoals={allGoals.filter(g => g.type === 'finance' && g.status === 'active' && !g.parentGoalId) as FinanceGoal[]}
           onViewDetail={onViewDetail}
           onSync={onSync}
           onDelete={onDelete}
