@@ -6,6 +6,7 @@ import type { FinanceGoal } from '@/types/goals';
 
 interface FinanceGoalCardProps {
   goal: FinanceGoal;
+  allFinanceGoals: FinanceGoal[];
   onViewDetail: (goalId: string) => void;
   onSync: (goalId: string) => void;
   onDelete: (goalId: string) => void;
@@ -20,6 +21,7 @@ const springConfig = {
 
 export const FinanceGoalCard: React.FC<FinanceGoalCardProps> = ({
   goal,
+  allFinanceGoals,
   onViewDetail,
   onSync,
   onDelete,
