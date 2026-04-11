@@ -88,7 +88,7 @@ export const GroupGoalCard: React.FC<GroupGoalCardProps> = ({
 
             {/* Title and Stats */}
             <div className="flex-1 min-w-0">
-              <h3 className="font-heading text-lg font-semibold mb-1 truncate">
+              <h3 className="font-heading text-lg font-semibold mb-1 break-words">
                 {goal.title}
               </h3>
               <p className="text-sm text-muted-foreground line-clamp-2">
@@ -121,7 +121,7 @@ export const GroupGoalCard: React.FC<GroupGoalCardProps> = ({
         {/* Preview Grid */}
         {previewGoals.length > 0 && (
           <div className="p-4">
-            <div className="grid grid-cols-2 gap-2">
+            <div className="flex flex-col gap-2">
               {previewGoals.map((subgoal, idx) => (
                 <div
                   key={subgoal.id}
