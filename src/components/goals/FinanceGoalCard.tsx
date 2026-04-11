@@ -6,6 +6,7 @@ import type { FinanceGoal } from '@/types/goals';
 
 interface FinanceGoalCardProps {
   goal: FinanceGoal;
+  allFinanceGoals: FinanceGoal[];
   onViewDetail: (goalId: string) => void;
   onSync: (goalId: string) => void;
   onDelete: (goalId: string) => void;
@@ -20,6 +21,7 @@ const springConfig = {
 
 export const FinanceGoalCard: React.FC<FinanceGoalCardProps> = ({
   goal,
+  allFinanceGoals,
   onViewDetail,
   onSync,
   onDelete,
@@ -78,7 +80,7 @@ export const FinanceGoalCard: React.FC<FinanceGoalCardProps> = ({
       >
         {/* Header */}
         <div className="flex items-start gap-3 mb-4">
-          <div className="size-10 rounded-xl bg-gradient-sunset flex items-center justify-center text-xl">
+          <div className="size-10 aspect-square rounded-xl bg-gradient-sunset flex items-center justify-center text-xl flex-shrink-0">
             {goal.institutionIcon}
           </div>
           <div>
@@ -144,20 +146,21 @@ export const FinanceGoalCard: React.FC<FinanceGoalCardProps> = ({
           </div>
         </div>
 
-        {/* Mini Sparkline */}
-        <div className="flex items-end justify-between h-10 gap-0.5">
-          {goal.progressHistory.map((value, index) => {
-            const height = ((value - minVal) / range) * 100;
-            const isLast = index === goal.progressHistory.length - 1;
+        {/* Comparative Progress Chart */}
+        <div className="flex items-end justify-between h-10 gap-1">
+          {allFinanceGoals.map((fg) => {
+            const fgProgress = Math.min((fg.currentBalance / fg.targetBalance) * 100, 100);
+            const isCurrent = fg.id === goal.id;
 
             return (
               <div
-                key={index}
+                key={fg.id}
                 className={cn(
                   "flex-1 rounded-t transition-all",
-                  isLast ? "bg-gradient-neon" : "bg-muted-foreground/30"
+                  isCurrent ? "bg-gradient-neon" : "bg-muted-foreground/30"
                 )}
-                style={{ height: `${Math.max(height, 10)}%` }}
+                style={{ height: `${Math.max(fgProgress, 5)}%` }}
+                title={`${fg.title}: ${fgProgress.toFixed(0)}%`}
               />
             );
           })}
