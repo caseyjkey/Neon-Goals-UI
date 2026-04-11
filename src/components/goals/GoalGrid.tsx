@@ -295,6 +295,7 @@ const GoalCardWrapper = React.forwardRef<
   onSearch,
   animationIndex,
 }, ref) => {
+  const allGoals = useGoalsStore(state => state.goals);
   switch (goal.type) {
     case 'item':
       return (
