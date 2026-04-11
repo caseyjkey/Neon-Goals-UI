@@ -269,15 +269,12 @@ export const StackedItemGoalCard = React.forwardRef<
                   </p>
                 </div>
 
-                {/* Price */}
-                <div className="text-right flex-shrink-0">
-                  <p className="font-heading font-bold text-primary">
+                {/* Price + Actions */}
+                <div className="flex items-center gap-2 flex-shrink-0 ml-auto">
+                  <p className="font-heading font-bold text-primary whitespace-nowrap">
                     ${goal.bestPrice.toLocaleString()}
                   </p>
-                </div>
-
-                {/* Actions */}
-                <div className="flex gap-1 opacity-0 group-hover/item:opacity-100 transition-opacity z-20">
+                  <div className="flex gap-1 opacity-0 group-hover/item:opacity-100 transition-opacity z-20">
                   <a
                     href={goal.retailerUrl}
                     target="_blank"
@@ -302,6 +299,7 @@ export const StackedItemGoalCard = React.forwardRef<
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
+                  </div>
                 </div>
               </motion.div>
             ))}
