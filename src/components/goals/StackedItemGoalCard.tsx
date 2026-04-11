@@ -269,37 +269,37 @@ export const StackedItemGoalCard = React.forwardRef<
                   </p>
                 </div>
 
-                {/* Price + Actions */}
-                <div className="flex items-center gap-2 flex-shrink-0 ml-auto">
-                  <p className="font-heading font-bold text-primary whitespace-nowrap">
+                {/* Price + Actions stacked */}
+                <div className="flex flex-col items-end gap-1 flex-shrink-0 ml-auto">
+                  <div className="flex gap-1 opacity-0 group-hover/item:opacity-100 transition-opacity z-20">
+                    <a
+                      href={goal.retailerUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onClick={(e) => e.stopPropagation()}
+                      className="p-1 rounded-md bg-primary/20 text-primary hover:bg-primary/30 transition-colors"
+                      aria-label="Buy"
+                    >
+                      <ExternalLink className="w-3 h-3" />
+                    </a>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onArchive(goal.id); }}
+                      className="p-1 rounded-md bg-muted/50 text-muted-foreground hover:text-warning transition-colors"
+                      aria-label="Archive"
+                    >
+                      <Archive className="w-3 h-3" />
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onDelete(goal.id); }}
+                      className="p-1 rounded-md bg-muted/50 text-muted-foreground hover:text-destructive transition-colors"
+                      aria-label="Delete"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  </div>
+                  <p className="font-heading font-bold text-primary text-sm whitespace-nowrap">
                     ${goal.bestPrice.toLocaleString()}
                   </p>
-                  <div className="flex gap-1 opacity-0 group-hover/item:opacity-100 transition-opacity z-20">
-                  <a
-                    href={goal.retailerUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={(e) => e.stopPropagation()}
-                    className="p-1.5 rounded-lg bg-primary/20 text-primary hover:bg-primary/30 transition-colors"
-                    aria-label="Buy"
-                  >
-                    <ExternalLink className="w-3.5 h-3.5" />
-                  </a>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); onArchive(goal.id); }}
-                    className="p-1.5 rounded-lg bg-muted/50 text-muted-foreground hover:text-warning transition-colors"
-                    aria-label="Archive"
-                  >
-                    <Archive className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); onDelete(goal.id); }}
-                    className="p-1.5 rounded-lg bg-muted/50 text-muted-foreground hover:text-destructive transition-colors"
-                    aria-label="Delete"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                  </div>
                 </div>
               </motion.div>
             ))}
